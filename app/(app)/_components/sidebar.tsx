@@ -46,7 +46,7 @@ function ChevronIcon({ flipped }: { flipped: boolean }) {
 
 function SignOutIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 md:h-4 md:w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
     </svg>
   );
@@ -97,6 +97,27 @@ export function Sidebar({ email }: { email: string }) {
           </span>
           BookmarkAI
         </Link>
+        <div className="ml-auto flex items-center gap-1">
+          {NAV_ITEMS.map((item) => {
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-label={item.label}
+                title={item.label}
+                aria-current={active ? "page" : undefined}
+                className={`flex h-11 w-11 items-center justify-center rounded-md text-2xl transition ${
+                  active
+                    ? "bg-background"
+                    : "opacity-70 hover:bg-background hover:opacity-100"
+                }`}
+              >
+                <span aria-hidden>{item.icon}</span>
+              </Link>
+            );
+          })}
+        </div>
       </header>
 
       {mobileOpen && (
@@ -148,7 +169,9 @@ export function Sidebar({ email }: { email: string }) {
           </button>
         </div>
 
-        <nav className={`flex flex-col gap-1 p-3 text-sm font-medium ${collapsed ? "md:mt-10" : ""}`}>
+        {/* Bookmarks/Todos live in the mobile top bar as quick-access icons,
+            so the drawer only lists them at md+ where the top bar is gone. */}
+        <nav className={`hidden flex-col gap-1 p-3 text-sm font-medium md:flex ${collapsed ? "md:mt-10" : ""}`}>
           {NAV_ITEMS.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -171,8 +194,8 @@ export function Sidebar({ email }: { email: string }) {
           })}
         </nav>
 
-        <div className={`mt-auto flex flex-col gap-3 border-t border-border p-3 text-sm ${collapsed ? "md:items-center" : ""}`}>
-          <span className={`truncate px-1 text-xs text-muted ${hideWhenCollapsed}`} title={email}>
+        <div className={`mt-auto flex flex-col gap-4 border-t border-border p-4 text-base md:gap-3 md:p-3 md:text-sm ${collapsed ? "md:items-center" : ""}`}>
+          <span className={`truncate px-1 text-sm text-muted md:text-xs ${hideWhenCollapsed}`} title={email}>
             {email}
           </span>
           <ThemeToggle className={collapsed ? "md:flex-col" : ""} />
@@ -180,7 +203,7 @@ export function Sidebar({ email }: { email: string }) {
             <button
               type="submit"
               title="Sign out"
-              className={`flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-muted transition hover:bg-background hover:text-foreground ${
+              className={`flex w-full items-center gap-3 rounded-md border border-border px-4 py-3 text-muted transition hover:bg-background hover:text-foreground md:gap-2 md:px-3 md:py-2 ${
                 collapsed ? "md:justify-center md:px-0" : ""
               }`}
             >

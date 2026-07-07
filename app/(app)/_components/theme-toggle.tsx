@@ -60,7 +60,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
             aria-label={opt.label}
             title={opt.label}
             onClick={() => applyTheme(opt.value)}
-            className={`flex h-7 w-7 items-center justify-center rounded text-sm transition ${
+            className={`flex h-10 w-10 items-center justify-center rounded text-lg transition md:h-7 md:w-7 md:text-sm ${
               active
                 ? "bg-accent text-accent-fg"
                 : "text-muted hover:bg-background hover:text-foreground"
