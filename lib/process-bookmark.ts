@@ -1,8 +1,39 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { extractArticle } from "./extract";
-import { summarize } from "./summarize";
+import { summarize, type Summary } from "./summarize";
 import { normalizeTags } from "./tags";
+import type { Extracted } from "./extract";
+
+const MAX_SUMMARY_ATTEMPTS = 5;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Summarization hits an external LLM API, so it can fail transiently
+ * (rate limits, timeouts, malformed tool output). Retry with exponential
+ * backoff (1s, 2s, 4s, 8s — ~15s worst case, well inside maxDuration).
+ */
+async function summarizeWithRetries(article: Extracted): Promise<Summary> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_SUMMARY_ATTEMPTS; attempt++) {
+    try {
+      return await summarize(article);
+    } catch (err) {
+      lastError = err;
+      console.error(
+        `summarize attempt ${attempt}/${MAX_SUMMARY_ATTEMPTS} failed:`,
+        err instanceof Error ? err.message : err,
+      );
+      if (attempt < MAX_SUMMARY_ATTEMPTS) {
+        await sleep(1000 * 2 ** (attempt - 1));
+      }
+    }
+  }
+  throw lastError;
+}
 
 /**
  * Fetch + extract + summarize a bookmark, then persist the result.
@@ -21,7 +52,7 @@ export async function processBookmark(bookmarkId: string): Promise<void> {
 
   try {
     const article = await extractArticle(bookmark.url);
-    const summary = await summarize(article);
+    const summary = await summarizeWithRetries(article);
 
     await prisma.$transaction([
       // Clear any prior derived rows (in case this is a retry).
