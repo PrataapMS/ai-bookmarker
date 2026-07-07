@@ -38,7 +38,7 @@ function applyTheme(next: Theme) {
   window.dispatchEvent(new Event(THEME_EVENT));
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ className = "" }: { className?: string }) {
   // Server snapshot is null so SSR and the first client render agree; the inline
   // script in the root layout owns the attribute until this reconciles.
   const theme = useSyncExternalStore(subscribe, getSnapshot, () => null);
@@ -47,7 +47,7 @@ export function ThemeToggle() {
     <div
       role="radiogroup"
       aria-label="Color theme"
-      className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
+      className={`flex w-fit items-center gap-0.5 rounded-md border border-border p-0.5 ${className}`}
     >
       {OPTIONS.map((opt) => {
         const active = theme === opt.value;

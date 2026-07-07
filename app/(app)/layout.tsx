@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { logout } from "@/app/actions/auth";
-import { ThemeToggle } from "./_components/theme-toggle";
+import { Sidebar } from "./_components/sidebar";
 
 export default async function AppLayout({
   children,
@@ -11,46 +9,11 @@ export default async function AppLayout({
   const user = await requireUser();
 
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-10 border-b border-border bg-surface/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <nav className="flex items-center gap-1 text-sm font-medium">
-            <Link
-              href="/bookmarks"
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-background"
-            >
-              <span className="text-lg">🔖</span>
-              <span className="font-semibold">BookmarkAI</span>
-            </Link>
-            <Link
-              href="/bookmarks"
-              className="rounded-md px-3 py-1.5 text-muted hover:bg-background hover:text-foreground"
-            >
-              Bookmarks
-            </Link>
-            <Link
-              href="/todos"
-              className="rounded-md px-3 py-1.5 text-muted hover:bg-background hover:text-foreground"
-            >
-              Todos
-            </Link>
-          </nav>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden text-muted sm:inline">{user.email}</span>
-            <ThemeToggle />
-            <form action={logout}>
-              <button
-                type="submit"
-                className="rounded-md border border-border px-3 py-1.5 text-muted transition hover:bg-background hover:text-foreground"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
-        {children}
+    <div className="flex min-h-full flex-1">
+      <Sidebar email={user.email} />
+      {/* pt-20 clears the fixed mobile top bar; the sidebar sits in-flow at md+. */}
+      <main className="min-w-0 flex-1 px-4 pb-8 pt-20 md:pt-8">
+        <div className="mx-auto w-full max-w-3xl">{children}</div>
       </main>
     </div>
   );
