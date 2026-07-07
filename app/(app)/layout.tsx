@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { logout } from "@/app/actions/auth";
+import { ThemeToggle } from "./_components/theme-toggle";
 
 export default async function AppLayout({
   children,
@@ -36,6 +37,7 @@ export default async function AppLayout({
           </nav>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden text-muted sm:inline">{user.email}</span>
+            <ThemeToggle />
             <form action={logout}>
               <button
                 type="submit"
