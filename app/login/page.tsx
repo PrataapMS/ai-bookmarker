@@ -18,7 +18,7 @@ export default async function LoginPage() {
             Save a link. Get the summary, takeaways, and action items.
           </p>
         </div>
-        <AuthForm />
+        <AuthForm inviteRequired={Boolean(process.env.SIGNUP_CODE)} />
       </div>
     </main>
   );

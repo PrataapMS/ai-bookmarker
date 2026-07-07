@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { login, signup, type AuthState } from "@/app/actions/auth";
 
-export function AuthForm() {
+export function AuthForm({ inviteRequired }: { inviteRequired: boolean }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const action = mode === "login" ? login : signup;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(
@@ -64,6 +64,25 @@ export function AuthForm() {
             placeholder="At least 8 characters"
           />
         </div>
+
+        {mode === "signup" && inviteRequired && (
+          <div>
+            <label
+              htmlFor="inviteCode"
+              className="mb-1 block text-sm font-medium"
+            >
+              Invite code
+            </label>
+            <input
+              id="inviteCode"
+              name="inviteCode"
+              type="text"
+              required
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/30"
+              placeholder="Ask the owner for a code"
+            />
+          </div>
+        )}
 
         {state?.error && (
           <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">

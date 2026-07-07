@@ -52,6 +52,16 @@ export async function signup(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
+  // When SIGNUP_CODE is set (e.g. in production), registration is
+  // invite-only so strangers can't create accounts and spend LLM credits.
+  const requiredCode = process.env.SIGNUP_CODE;
+  if (requiredCode) {
+    const given = String(formData.get("inviteCode") ?? "").trim();
+    if (given !== requiredCode) {
+      return { error: "A valid invite code is required to create an account." };
+    }
+  }
+
   const existing = await prisma.user.findUnique({
     where: { email: parsed.data.email },
   });
