@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { extractArticle } from "./extract";
 import { summarize } from "./summarize";
+import { normalizeTags } from "./tags";
 
 /**
  * Fetch + extract + summarize a bookmark, then persist the result.
@@ -38,6 +39,8 @@ export async function processBookmark(bookmarkId: string): Promise<void> {
           contentType: summary.contentType,
           summary: summary.summary,
           rawText: article.textContent.slice(0, 50_000),
+          // Union with existing tags so a retry never wipes manual edits.
+          tags: normalizeTags([...bookmark.tags, ...summary.tags]),
           takeaways: {
             create: summary.keyTakeaways.map((text, order) => ({
               text,

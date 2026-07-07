@@ -8,6 +8,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
   { href: "/bookmarks", label: "Bookmarks", icon: "📑" },
+  { href: "/feed", label: "Feed", icon: "🌐" },
   { href: "/todos", label: "Todos", icon: "✅" },
 ];
 

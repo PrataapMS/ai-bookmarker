@@ -9,6 +9,7 @@ export const summarySchema = z.object({
   summary: z.string(),
   keyTakeaways: z.array(z.string()),
   actionItems: z.array(z.string()),
+  tags: z.array(z.string()).default([]),
 });
 
 export type Summary = z.infer<typeof summarySchema>;
@@ -51,6 +52,12 @@ const TOOL = {
           description:
             "Concrete, actionable next steps a reader could add to a todo list. Empty array if the piece implies none.",
         },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "2-5 short lowercase topic tags for categorizing this piece (e.g. \"ai\", \"productivity\", \"web-dev\"). Single words or hyphenated phrases only.",
+        },
       },
       required: [
         "isWorthReading",
@@ -58,6 +65,7 @@ const TOOL = {
         "summary",
         "keyTakeaways",
         "actionItems",
+        "tags",
       ],
     },
   },

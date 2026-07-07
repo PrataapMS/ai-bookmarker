@@ -17,6 +17,7 @@ model User {
   createdAt    DateTime   @default(now())
   bookmarks    Bookmark[]
   todos        Todo[]
+  votes        Vote[]
 }
 
 model Bookmark {
@@ -31,11 +32,29 @@ model Bookmark {
   error       String?      // human-friendly failure reason
   summary     String?
   rawText     String?      // extracted article text (for re-processing)
+  isPublic    Boolean      @default(false) // public bookmarks appear in the shared feed
+  tags        String[]     @default([]) // lowercase topic tags for categorizing/filtering
   createdAt   DateTime     @default(now())
   takeaways   Takeaway[]
   actionItems ActionItem[]
+  votes       Vote[]
 
   @@index([userId, createdAt])
+  @@index([isPublic, createdAt])
+}
+
+// One vote per user per bookmark; value is +1 (upvote) or -1 (downvote).
+model Vote {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookmarkId String
+  bookmark   Bookmark @relation(fields: [bookmarkId], references: [id], onDelete: Cascade)
+  value      Int
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, bookmarkId])
+  @@index([bookmarkId])
 }
 
 model Takeaway {
