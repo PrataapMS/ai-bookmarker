@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { processBookmark } from "@/lib/process-bookmark";
+import { normalizeUrl, urlMatchKeys } from "@/lib/normalize-url";
 import { normalizeTag, normalizeTags } from "@/lib/tags";
 
 const urlSchema = z
@@ -29,10 +30,62 @@ export async function addBookmark(
     return { error: parsed.error.issues[0]?.message ?? "Invalid link." };
   }
 
+  const url = normalizeUrl(parsed.data);
+  const matchKeys = urlMatchKeys(parsed.data);
+
+  // Same user already saved this link → open their existing entry
+  // instead of creating a duplicate.
+  const existing = await prisma.bookmark.findFirst({
+    where: { userId: user.id, url: { in: matchKeys } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (existing) {
+    redirect(`/bookmarks/${existing.id}`);
+  }
+
+  // Another user already processed this link → copy their result so we
+  // don't fetch + summarize the same article again.
+  const source = await prisma.bookmark.findFirst({
+    where: { url: { in: matchKeys }, status: "ready" },
+    orderBy: { createdAt: "desc" },
+    include: {
+      takeaways: { orderBy: { order: "asc" } },
+      actionItems: { orderBy: { order: "asc" } },
+    },
+  });
+
+  if (source) {
+    const copy = await prisma.bookmark.create({
+      data: {
+        userId: user.id,
+        url,
+        status: "ready",
+        title: source.title,
+        siteName: source.siteName,
+        contentType: source.contentType,
+        summary: source.summary,
+        rawText: source.rawText,
+        tags: source.tags,
+        takeaways: {
+          create: source.takeaways.map(({ text, order }) => ({ text, order })),
+        },
+        actionItems: {
+          create: source.actionItems.map(({ text, order }) => ({
+            text,
+            order,
+          })),
+        },
+      },
+    });
+    revalidatePath("/bookmarks");
+    redirect(`/bookmarks/${copy.id}`);
+  }
+
   const bookmark = await prisma.bookmark.create({
     data: {
       userId: user.id,
-      url: parsed.data,
+      url,
       status: "pending",
     },
   });
