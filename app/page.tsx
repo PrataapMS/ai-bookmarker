@@ -37,10 +37,10 @@ export default async function LandingPage() {
       />
 
       <header className="relative z-10 mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-4">
-        <div className="flex items-center gap-2 font-semibold">
+        <Link href="/bookmarks" className="flex items-center gap-2 font-semibold">
           <span className="text-lg">🔖</span>
           BookmarkAI
-        </div>
+        </Link>
         <nav className="flex items-center gap-2 text-sm">
           <Link
             href="/login"

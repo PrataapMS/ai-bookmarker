@@ -195,10 +195,10 @@ export function Sidebar({ email }: { email: string }) {
         </nav>
 
         <div className={`mt-auto flex flex-col gap-4 border-t border-border p-4 text-base md:gap-3 md:p-3 md:text-sm ${collapsed ? "md:items-center" : ""}`}>
+          <ThemeToggle className={collapsed ? "md:flex-col" : ""} />
           <span className={`truncate px-1 text-sm text-muted md:text-xs ${hideWhenCollapsed}`} title={email}>
             {email}
           </span>
-          <ThemeToggle className={collapsed ? "md:flex-col" : ""} />
           <form action={logout} className="w-full">
             <button
               type="submit"
