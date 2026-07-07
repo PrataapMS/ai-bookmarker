@@ -1,0 +1,70 @@
+// BookmarkAI schema — see plan for model rationale.
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  createdAt    DateTime   @default(now())
+  bookmarks    Bookmark[]
+  todos        Todo[]
+}
+
+model Bookmark {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url         String
+  title       String?
+  siteName    String?
+  contentType String?      // article | blog | docs | other
+  status      String       @default("pending") // pending | ready | failed
+  error       String?      // human-friendly failure reason
+  summary     String?
+  rawText     String?      // extracted article text (for re-processing)
+  createdAt   DateTime     @default(now())
+  takeaways   Takeaway[]
+  actionItems ActionItem[]
+
+  @@index([userId, createdAt])
+}
+
+model Takeaway {
+  id         String   @id @default(cuid())
+  bookmarkId String
+  bookmark   Bookmark @relation(fields: [bookmarkId], references: [id], onDelete: Cascade)
+  text       String
+  order      Int      @default(0)
+}
+
+model ActionItem {
+  id             String   @id @default(cuid())
+  bookmarkId     String
+  bookmark       Bookmark @relation(fields: [bookmarkId], references: [id], onDelete: Cascade)
+  text           String
+  order          Int      @default(0)
+  promotedToTodo Boolean  @default(false)
+  todo           Todo?
+}
+
+model Todo {
+  id                 String      @id @default(cuid())
+  userId             String
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text               String
+  done               Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  sourceActionItemId String?     @unique
+  sourceActionItem   ActionItem? @relation(fields: [sourceActionItemId], references: [id], onDelete: SetNull)
+
+  @@index([userId, done])
+}

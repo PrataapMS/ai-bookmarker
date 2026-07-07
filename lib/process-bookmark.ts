@@ -1,0 +1,64 @@
+import "server-only";
+import { prisma } from "./prisma";
+import { extractArticle } from "./extract";
+import { summarize } from "./summarize";
+
+/**
+ * Fetch + extract + summarize a bookmark, then persist the result.
+ * Always resolves (never throws) — failures are written to the bookmark's
+ * `status`/`error` fields so the UI can show them.
+ *
+ * NOTE: in this MVP this is called fire-and-forget from the create action,
+ * which works under `next dev` and `next start`. For serverless production
+ * (e.g. Vercel functions), move this behind a queue or use `waitUntil`.
+ */
+export async function processBookmark(bookmarkId: string): Promise<void> {
+  const bookmark = await prisma.bookmark.findUnique({
+    where: { id: bookmarkId },
+  });
+  if (!bookmark) return;
+
+  try {
+    const article = await extractArticle(bookmark.url);
+    const summary = await summarize(article);
+
+    await prisma.$transaction([
+      // Clear any prior derived rows (in case this is a retry).
+      prisma.takeaway.deleteMany({ where: { bookmarkId } }),
+      prisma.actionItem.deleteMany({
+        where: { bookmarkId, promotedToTodo: false },
+      }),
+      prisma.bookmark.update({
+        where: { id: bookmarkId },
+        data: {
+          status: "ready",
+          error: null,
+          title: article.title ?? bookmark.title,
+          siteName: article.siteName ?? bookmark.siteName,
+          contentType: summary.contentType,
+          summary: summary.summary,
+          rawText: article.textContent.slice(0, 50_000),
+          takeaways: {
+            create: summary.keyTakeaways.map((text, order) => ({
+              text,
+              order,
+            })),
+          },
+          actionItems: {
+            create: summary.actionItems.map((text, order) => ({
+              text,
+              order,
+            })),
+          },
+        },
+      }),
+    ]);
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Something went wrong.";
+    await prisma.bookmark.update({
+      where: { id: bookmarkId },
+      data: { status: "failed", error: message },
+    });
+  }
+}
