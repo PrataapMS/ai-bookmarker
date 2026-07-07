@@ -39,7 +39,10 @@ export default async function BookmarkDetailPage({
       <StatusPoller active={bookmark.status === "pending"} />
 
       <div>
-        <Link href="/" className="text-sm text-muted hover:text-foreground">
+        <Link
+          href="/bookmarks"
+          className="text-sm text-muted hover:text-foreground"
+        >
           ← All bookmarks
         </Link>
       </div>

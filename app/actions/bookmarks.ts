@@ -40,7 +40,7 @@ export async function addBookmark(
   // function alive (waitUntil) instead of dying with the request.
   after(() => processBookmark(bookmark.id));
 
-  revalidatePath("/");
+  revalidatePath("/bookmarks");
   redirect(`/bookmarks/${bookmark.id}`);
 }
 
@@ -57,7 +57,7 @@ export async function retryBookmark(bookmarkId: string): Promise<void> {
   });
   after(() => processBookmark(bookmarkId));
   revalidatePath(`/bookmarks/${bookmarkId}`);
-  revalidatePath("/");
+  revalidatePath("/bookmarks");
 }
 
 export async function deleteBookmark(bookmarkId: string): Promise<void> {
@@ -65,8 +65,8 @@ export async function deleteBookmark(bookmarkId: string): Promise<void> {
   await prisma.bookmark.deleteMany({
     where: { id: bookmarkId, userId: user.id },
   });
-  revalidatePath("/");
-  redirect("/");
+  revalidatePath("/bookmarks");
+  redirect("/bookmarks");
 }
 
 /** Promote an action item into the user's todo list (idempotent). */

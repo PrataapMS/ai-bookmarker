@@ -37,7 +37,7 @@ export async function login(
   }
 
   await createSession(user.id);
-  redirect("/");
+  redirect("/bookmarks");
 }
 
 export async function signup(
@@ -77,10 +77,10 @@ export async function signup(
   });
 
   await createSession(user.id);
-  redirect("/");
+  redirect("/bookmarks");
 }
 
 export async function logout(): Promise<void> {
   await destroySession();
-  redirect("/login");
+  redirect("/");
 }

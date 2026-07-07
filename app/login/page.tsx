@@ -2,9 +2,15 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { AuthForm } from "./auth-form";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
   const user = await getCurrentUser();
-  if (user) redirect("/");
+  if (user) redirect("/bookmarks");
+
+  const { mode } = await searchParams;
 
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">
@@ -18,7 +24,10 @@ export default async function LoginPage() {
             Save a link. Get the summary, takeaways, and action items.
           </p>
         </div>
-        <AuthForm inviteRequired={Boolean(process.env.SIGNUP_CODE)} />
+        <AuthForm
+          inviteRequired={Boolean(process.env.SIGNUP_CODE)}
+          initialMode={mode === "signup" ? "signup" : "login"}
+        />
       </div>
     </main>
   );

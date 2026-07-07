@@ -20,7 +20,8 @@ Pre-flight — read `AGENTS.md` first (commit rules, gotchas). Then:
 5. **Deploy**: `npx vercel deploy --prod --yes`
 6. **Smoke test**:
    - `curl -s -o /dev/null -w "%{http_code}\n" https://ai-bookmarker.vercel.app/login` → `200`
-   - `curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://ai-bookmarker.vercel.app/` → `307 …/login`
+   - `curl -s -o /dev/null -w "%{http_code}\n" https://ai-bookmarker.vercel.app/` → `200` (public landing)
+   - `curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://ai-bookmarker.vercel.app/bookmarks` → `307 …/login`
 7. **Watch logs** while the user exercises the app (the CLI exits when idle, so
    loop it):
    `while true; do npx vercel logs <deployment-url> --json 2>/dev/null | grep --line-buffered -iE '"level":"error"|"level":"warn"'; sleep 10; done`

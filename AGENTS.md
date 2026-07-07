@@ -66,7 +66,7 @@ takeaways, action items; action items promote into a todo list.
   (see `app/actions/bookmarks.ts`). Fire-and-forget promises die when the
   serverless function freezes after the response.
 - Pages whose server actions do fetch + summarize export `maxDuration = 300`
-  (`app/(app)/page.tsx`, `app/(app)/bookmarks/[id]/page.tsx`). Keep it on any
+  (`app/(app)/bookmarks/page.tsx`, `app/(app)/bookmarks/[id]/page.tsx`). Keep it on any
   new page that triggers processing.
 - Signups are invite-gated when `SIGNUP_CODE` is set (prod: set; local: unset →
   open signup). Don't remove the gate — it protects the OpenRouter budget.
@@ -75,6 +75,7 @@ takeaways, action items; action items promote into a todo list.
 
 - `npm run build` must pass before any commit that touches app code.
 - After deploying: `curl -s -o /dev/null -w "%{http_code}" https://ai-bookmarker.vercel.app/login`
-  should return 200, and `/` should 307-redirect to `/login` when signed out.
+  should return 200, `/` should return 200 (public landing page), and
+  `/bookmarks` should 307-redirect to `/login` when signed out.
 - Real end-to-end (add bookmark → status `ready`) requires a signed-in browser
   session; ask the user to verify, or get approval before touching prod data.

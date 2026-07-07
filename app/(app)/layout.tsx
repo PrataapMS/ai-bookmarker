@@ -16,14 +16,14 @@ export default async function AppLayout({
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <nav className="flex items-center gap-1 text-sm font-medium">
             <Link
-              href="/"
+              href="/bookmarks"
               className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-background"
             >
               <span className="text-lg">🔖</span>
               <span className="font-semibold">BookmarkAI</span>
             </Link>
             <Link
-              href="/"
+              href="/bookmarks"
               className="rounded-md px-3 py-1.5 text-muted hover:bg-background hover:text-foreground"
             >
               Bookmarks

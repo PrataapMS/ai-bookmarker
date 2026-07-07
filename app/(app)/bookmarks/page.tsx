@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { AddBookmarkForm } from "./_components/add-bookmark-form";
-import { StatusBadge } from "./_components/status-badge";
-import { StatusPoller } from "./_components/status-poller";
+import { AddBookmarkForm } from "../_components/add-bookmark-form";
+import { StatusBadge } from "../_components/status-badge";
+import { StatusPoller } from "../_components/status-poller";
 
 export const dynamic = "force-dynamic";
 // Fetch + extract + summarize can take a while; allow the action (and its

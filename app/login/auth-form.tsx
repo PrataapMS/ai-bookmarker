@@ -3,13 +3,25 @@
 import { useActionState, useState } from "react";
 import { login, signup, type AuthState } from "@/app/actions/auth";
 
-export function AuthForm({ inviteRequired }: { inviteRequired: boolean }) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const action = mode === "login" ? login : signup;
-  const [state, formAction, pending] = useActionState<AuthState, FormData>(
-    action,
-    undefined,
-  );
+export function AuthForm({
+  inviteRequired,
+  initialMode = "login",
+}: {
+  inviteRequired: boolean;
+  initialMode?: "login" | "signup";
+}) {
+  const [mode, setMode] = useState<"login" | "signup">(initialMode);
+  const [loginState, loginAction, loginPending] = useActionState<
+    AuthState,
+    FormData
+  >(login, undefined);
+  const [signupState, signupAction, signupPending] = useActionState<
+    AuthState,
+    FormData
+  >(signup, undefined);
+  const state = mode === "login" ? loginState : signupState;
+  const formAction = mode === "login" ? loginAction : signupAction;
+  const pending = mode === "login" ? loginPending : signupPending;
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
