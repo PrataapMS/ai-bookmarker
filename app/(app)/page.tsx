@@ -6,6 +6,9 @@ import { StatusBadge } from "./_components/status-badge";
 import { StatusPoller } from "./_components/status-poller";
 
 export const dynamic = "force-dynamic";
+// Fetch + extract + summarize can take a while; allow the action (and its
+// after() work) the platform maximum.
+export const maxDuration = 300;
 
 export default async function BookmarksPage() {
   const user = await requireUser();

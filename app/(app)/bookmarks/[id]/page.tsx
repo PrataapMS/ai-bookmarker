@@ -11,6 +11,8 @@ import { StatusBadge } from "../../_components/status-badge";
 import { StatusPoller } from "../../_components/status-poller";
 
 export const dynamic = "force-dynamic";
+// Retry re-runs fetch + summarize via after(); allow the platform maximum.
+export const maxDuration = 300;
 
 export default async function BookmarkDetailPage({
   params,

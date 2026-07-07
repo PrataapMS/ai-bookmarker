@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
@@ -35,8 +36,9 @@ export async function addBookmark(
     },
   });
 
-  // Fire-and-forget: process in the background so the UI returns immediately.
-  void processBookmark(bookmark.id);
+  // Process after the response is sent; on serverless this keeps the
+  // function alive (waitUntil) instead of dying with the request.
+  after(() => processBookmark(bookmark.id));
 
   revalidatePath("/");
   redirect(`/bookmarks/${bookmark.id}`);
@@ -53,7 +55,7 @@ export async function retryBookmark(bookmarkId: string): Promise<void> {
     where: { id: bookmarkId },
     data: { status: "pending", error: null },
   });
-  void processBookmark(bookmarkId);
+  after(() => processBookmark(bookmarkId));
   revalidatePath(`/bookmarks/${bookmarkId}`);
   revalidatePath("/");
 }
