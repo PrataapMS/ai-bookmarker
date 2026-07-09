@@ -58,10 +58,13 @@ export function Sidebar({ email }: { email: string }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  // Navigating away should dismiss the mobile drawer.
-  useEffect(() => {
+  // Navigating away should dismiss the mobile drawer. Adjusting state during
+  // render (instead of in an effect) avoids a flash of the stale drawer.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setMobileOpen(false);
-  }, [pathname]);
+  }
 
   // While the drawer is open: Escape closes it and the page behind stays put.
   useEffect(() => {
