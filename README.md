@@ -1,5 +1,7 @@
 # BookmarkAI
 
+**Live at [ai-bookmarker.vercel.app](https://ai-bookmarker.vercel.app)** — check out the production deployment.
+
 Save a link → the app fetches the page, extracts the article text, and uses
 Claude to produce a **summary**, **key takeaways**, and **action items**.
 Action items can be promoted into a built-in **todo list**. Everything is
