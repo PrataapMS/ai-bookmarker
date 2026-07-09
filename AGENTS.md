@@ -21,10 +21,12 @@ takeaways, action items; action items promote into a todo list.
 
 - **Never add `Co-Authored-By` or any other trailer to commits.** The user is the
   sole author.
-- Commit message: imperative subject ≤ 72 chars; body explains *why* when the
-  change isn't self-evident.
-- Do not push directly to `main` from an agent session; push a feature branch and
-  let the user merge/push. Never force-push without explicit user instruction.
+- Commit message: short imperative subject ≤ 72 chars; skip the body unless the
+  *why* really isn't self-evident. No technical play-by-play.
+- Branching: small changes (a handful of files; no schema, auth, or dependency
+  changes) may be pushed directly to `main` once the user has verified them.
+  For anything larger, ask the user whether to push to `main` or a feature
+  branch. Never force-push without explicit user instruction.
 - Never commit `.env*` (only `.env.example`), `*.db`, or anything containing
   secrets. Secrets live in `.env` locally and in Vercel env vars for production.
 
@@ -34,8 +36,9 @@ takeaways, action items; action items promote into a todo list.
   `ai-bookmarker`, scope `prtps-projects`. Functions pinned to `sin1`
   (vercel.json) to sit next to the database.
 - Deploys are CLI-driven (no git integration): `npx vercel deploy --prod --yes`.
-  Always run `npm run build` locally first; ask the user before any production
-  deploy. See `.claude/skills/deploy/SKILL.md` for the full checklist.
+  Always run `npm run build` locally first, and hand the change to the user for
+  manual verification before pushing/deploying (unless they told you to skip
+  it). See `.claude/skills/deploy/SKILL.md` for the full pipeline.
 - Env vars (prod, managed via `npx vercel env`): `DATABASE_URL`,
   `SESSION_SECRET` (distinct from local), `OPENROUTER_API_KEY`,
   `OPENROUTER_MODEL`, `SIGNUP_CODE`.
@@ -73,9 +76,13 @@ takeaways, action items; action items promote into a todo list.
 
 ## Verification
 
-- `npm run build` must pass before any commit that touches app code.
+- `npm run build` and `npm run lint` must pass before any commit that touches
+  app code. That is the only automated verification — do NOT spin up dev
+  servers, mint session cookies, or curl signed-in pages to check your own
+  work. Hand the user a short checklist of what to click through instead;
+  their dev server is usually already running on :3000 and hot-reloads.
 - After deploying: `curl -s -o /dev/null -w "%{http_code}" https://ai-bookmarker.vercel.app/login`
   should return 200, `/` should return 200 (public landing page), and
-  `/bookmarks` should 307-redirect to `/login` when signed out.
+  `/bookmarks` should 307-redirect to `/login` when signed out. Run each once.
 - Real end-to-end (add bookmark → status `ready`) requires a signed-in browser
   session; ask the user to verify, or get approval before touching prod data.
