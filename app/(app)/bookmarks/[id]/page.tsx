@@ -1,3 +1,4 @@
+import { ViewTransition } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -13,6 +14,7 @@ import {
 } from "@/app/actions/bookmarks";
 import { StatusBadge } from "../../_components/status-badge";
 import { StatusPoller } from "../../_components/status-poller";
+import { PageTransition } from "../../_components/page-transition";
 import { VoteButtons } from "../../_components/vote-buttons";
 
 export const dynamic = "force-dynamic";
@@ -49,12 +51,14 @@ export default async function BookmarkDetailPage({
   const addTag = addBookmarkTag.bind(null, bookmark.id);
 
   return (
+    <PageTransition>
     <div className="space-y-6">
       <StatusPoller active={bookmark.status === "pending"} />
 
       <div>
         <Link
           href={isOwner ? "/bookmarks" : "/feed"}
+          transitionTypes={["nav-back"]}
           className="text-sm text-muted hover:text-foreground"
         >
           ← {isOwner ? "All bookmarks" : "Back to feed"}
@@ -78,9 +82,11 @@ export default async function BookmarkDetailPage({
             </span>
           )}
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {bookmark.title ?? bookmark.url}
-        </h1>
+        <ViewTransition name={`bm-title-${bookmark.id}`} share="morph" default="none">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {bookmark.title ?? bookmark.url}
+          </h1>
+        </ViewTransition>
         <a
           href={bookmark.url}
           target="_blank"
@@ -283,5 +289,6 @@ export default async function BookmarkDetailPage({
         </div>
       )}
     </div>
+    </PageTransition>
   );
 }

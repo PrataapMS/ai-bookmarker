@@ -73,3 +73,72 @@ body {
     border-color 0.2s ease,
     color 0.2s ease;
 }
+
+/* ---------- View transitions ---------- */
+
+/* Shared-element morph: bookmark card title → detail page heading. */
+::view-transition-group(.morph) {
+  animation-duration: 300ms;
+}
+::view-transition-image-pair(.morph) {
+  animation-name: vt-blur;
+}
+@keyframes vt-blur {
+  30% {
+    filter: blur(2px);
+  }
+}
+
+/* Directional page slides. Forward (into a bookmark) moves content left;
+   back moves it right. Exits are fast so old content gets out of the way;
+   enters are gentler and wait for the exit. */
+::view-transition-old(.nav-forward) {
+  --vt-offset: -48px;
+  animation:
+    150ms ease-in both vt-fade reverse,
+    320ms ease-in-out both vt-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --vt-offset: 48px;
+  animation:
+    210ms ease-out 150ms both vt-fade,
+    320ms ease-in-out both vt-slide;
+}
+::view-transition-old(.nav-back) {
+  --vt-offset: 48px;
+  animation:
+    150ms ease-in both vt-fade reverse,
+    320ms ease-in-out both vt-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --vt-offset: -48px;
+  animation:
+    210ms ease-out 150ms both vt-fade,
+    320ms ease-in-out both vt-slide;
+}
+
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vt-slide {
+  from {
+    translate: var(--vt-offset) 0;
+  }
+  to {
+    translate: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

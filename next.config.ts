@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    // React <ViewTransition> for smooth page-open/back animations.
+    viewTransition: true,
+  },
 };
 
 export default nextConfig;
