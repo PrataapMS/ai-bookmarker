@@ -66,6 +66,7 @@ export async function addBookmark(
         contentType: source.contentType,
         summary: source.summary,
         rawText: source.rawText,
+        wordCount: source.wordCount,
         tags: source.tags,
         takeaways: {
           create: source.takeaways.map(({ text, order }) => ({ text, order })),
@@ -121,6 +122,24 @@ export async function deleteBookmark(bookmarkId: string): Promise<void> {
   });
   revalidatePath("/bookmarks");
   redirect("/bookmarks");
+}
+
+/**
+ * Toggle a bookmark's read state (owner only). Setting `read` stamps `readAt`
+ * with the current time; clearing it returns the bookmark to the reading queue.
+ */
+export async function setBookmarkRead(
+  bookmarkId: string,
+  read: boolean,
+): Promise<void> {
+  const user = await requireUser();
+  const { count } = await prisma.bookmark.updateMany({
+    where: { id: bookmarkId, userId: user.id },
+    data: { readAt: read ? new Date() : null },
+  });
+  if (count === 0) return;
+  revalidatePath(`/bookmarks/${bookmarkId}`);
+  revalidatePath("/bookmarks");
 }
 
 /** Flip a bookmark between private and public (owner only). */

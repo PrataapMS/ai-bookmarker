@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/format";
+import { formatDate, readingTime } from "@/lib/format";
 import {
   retryBookmark,
   deleteBookmark,
@@ -16,6 +16,7 @@ import { StatusBadge } from "../../_components/status-badge";
 import { StatusPoller } from "../../_components/status-poller";
 import { PageTransition } from "../../_components/page-transition";
 import { VoteButtons } from "../../_components/vote-buttons";
+import { ReadToggle } from "../../_components/read-toggle";
 import { AddActionItemTodoButton } from "../../_components/add-action-item-todo-button";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +84,11 @@ export default async function BookmarkDetailPage({
               {bookmark.contentType}
             </span>
           )}
+          {readingTime(bookmark.wordCount) && (
+            <span className="text-xs text-muted">
+              · 🕐 {readingTime(bookmark.wordCount)}
+            </span>
+          )}
           <span className="text-xs text-muted">
             · saved {formatDate(bookmark.createdAt)}
           </span>
@@ -108,6 +114,13 @@ export default async function BookmarkDetailPage({
 
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <VoteButtons bookmarkId={bookmark.id} score={score} myVote={myVote} />
+          {isOwner && bookmark.status === "ready" && (
+            <ReadToggle
+              bookmarkId={bookmark.id}
+              read={Boolean(bookmark.readAt)}
+              variant="detail"
+            />
+          )}
           {isOwner ? (
             <form action={toggleVisibility}>
               <button
