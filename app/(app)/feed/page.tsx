@@ -64,6 +64,10 @@ export default async function FeedPage({
     scored.sort((a, b) => b.score - a.score);
   }
 
+  // Carried through to the detail page so "back" returns to this exact
+  // feed view (tag/sort included) instead of defaulting to /bookmarks.
+  const returnHref = feedHref(activeTag ?? null, sort);
+
   const sortTab = (value: Sort, label: string) => (
     <Link
       href={feedHref(activeTag ?? null, value)}
@@ -125,7 +129,7 @@ export default async function FeedPage({
                     className="group relative rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50"
                   >
                     <Link
-                      href={`/bookmarks/${b.id}`}
+                      href={`/bookmarks/${b.id}?from=${encodeURIComponent(returnHref)}`}
                       transitionTypes={["nav-forward"]}
                       aria-label={b.title ?? b.url}
                       className="absolute inset-0 z-0 rounded-xl"

@@ -24,10 +24,13 @@ export const maxDuration = 300;
 
 export default async function BookmarkDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { id } = await params;
+  const { from } = await searchParams;
   const user = await requireUser();
 
   // Owners see their own bookmarks; public ones are readable by anyone signed in.
@@ -46,6 +49,12 @@ export default async function BookmarkDetailPage({
   const score = bookmark.votes.reduce((sum, v) => sum + v.value, 0);
   const myVote = bookmark.votes.find((v) => v.userId === user.id)?.value ?? 0;
 
+  // Opened from the feed (even one of your own public bookmarks) → back
+  // should return to the feed, preserving whatever tag/sort was active.
+  const fromFeed = from?.startsWith("/feed") ?? false;
+  const backHref = fromFeed || !isOwner ? (fromFeed ? from! : "/feed") : "/bookmarks";
+  const backLabel = fromFeed || !isOwner ? "Back to feed" : "All bookmarks";
+
   const retry = retryBookmark.bind(null, bookmark.id);
   const remove = deleteBookmark.bind(null, bookmark.id);
   const toggleVisibility = toggleBookmarkVisibility.bind(null, bookmark.id);
@@ -58,11 +67,11 @@ export default async function BookmarkDetailPage({
 
       <div>
         <Link
-          href={isOwner ? "/bookmarks" : "/feed"}
+          href={backHref}
           transitionTypes={["nav-back"]}
           className="text-sm text-muted hover:text-foreground"
         >
-          ← {isOwner ? "All bookmarks" : "Back to feed"}
+          ← {backLabel}
         </Link>
       </div>
 

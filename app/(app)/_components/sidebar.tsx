@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "./theme-toggle";
@@ -55,6 +55,11 @@ function SignOutIcon() {
 
 export function Sidebar({ email }: { email: string }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // A bookmark opened from the feed keeps the feed tab highlighted, even
+  // though its URL still lives under /bookmarks/[id].
+  const fromFeed = (searchParams.get("from") ?? "").startsWith("/feed");
+  const activePath = fromFeed ? "/feed" : pathname;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -103,7 +108,7 @@ export function Sidebar({ email }: { email: string }) {
         </Link>
         <div className="ml-auto flex items-center gap-1">
           {NAV_ITEMS.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active = activePath.startsWith(item.href);
             return (
               <Link
                 key={item.href}
@@ -177,7 +182,7 @@ export function Sidebar({ email }: { email: string }) {
             so the drawer only lists them at md+ where the top bar is gone. */}
         <nav className={`hidden flex-col gap-1 p-3 text-sm font-medium md:flex ${collapsed ? "md:mt-10" : ""}`}>
           {NAV_ITEMS.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active = activePath.startsWith(item.href);
             return (
               <Link
                 key={item.href}
