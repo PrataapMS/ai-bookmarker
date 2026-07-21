@@ -131,7 +131,7 @@ export default async function FeedPage({
                       className="absolute inset-0 z-0 rounded-xl"
                     />
 
-                    <div className="relative z-10 flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <ViewTransition name={`bm-title-${b.id}`} share="morph" default="none">
                           <h2 className="truncate font-medium group-hover:text-accent">
@@ -144,23 +144,23 @@ export default async function FeedPage({
                           {b.userId === user.id ? "you" : b.user.email.split("@")[0]}
                         </p>
                       </div>
-                      <VoteButtons bookmarkId={b.id} score={b.score} myVote={b.myVote} />
+                      <span className="relative z-10">
+                        <VoteButtons bookmarkId={b.id} score={b.score} myVote={b.myVote} />
+                      </span>
                     </div>
 
                     {b.summary && (
-                      <p className="relative z-10 mt-2 line-clamp-3 text-sm text-muted">
-                        {b.summary}
-                      </p>
+                      <p className="mt-2 line-clamp-3 text-sm text-muted">{b.summary}</p>
                     )}
 
-                    <div className="relative z-10 mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
                       {b.tags.length > 0 && (
                         <span className="flex flex-wrap gap-1.5">
                           {b.tags.slice(0, VISIBLE_CARD_TAGS).map((t) => (
                             <Link
                               key={t}
                               href={feedHref(t, sort)}
-                              className="rounded-full bg-background px-2 py-0.5 transition hover:text-accent"
+                              className="relative z-10 rounded-full bg-background px-2 py-0.5 transition hover:text-accent"
                             >
                               #{t}
                             </Link>
