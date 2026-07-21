@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { extractArticle } from "./extract";
 import { summarize, type Summary } from "./summarize";
 import { normalizeTags } from "./tags";
+import { countWords } from "./format";
 import type { Extracted } from "./extract";
 
 const MAX_SUMMARY_ATTEMPTS = 5;
@@ -53,6 +54,7 @@ export async function processBookmark(bookmarkId: string): Promise<void> {
   try {
     const article = await extractArticle(bookmark.url);
     const summary = await summarizeWithRetries(article);
+    const wordCount = countWords(article.textContent);
 
     await prisma.$transaction([
       // Clear any prior derived rows (in case this is a retry).
@@ -70,6 +72,7 @@ export async function processBookmark(bookmarkId: string): Promise<void> {
           contentType: summary.contentType,
           summary: summary.summary,
           rawText: article.textContent.slice(0, 50_000),
+          wordCount,
           // Union with existing tags so a retry never wipes manual edits.
           tags: normalizeTags([...bookmark.tags, ...summary.tags]),
           takeaways: {

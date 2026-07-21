@@ -8,3 +8,22 @@ const dateFormat = new Intl.DateTimeFormat("en-GB", {
 export function formatDate(date: Date): string {
   return dateFormat.format(date);
 }
+
+/** Count words in extracted article text (whitespace-delimited runs). */
+export function countWords(text: string): number {
+  const trimmed = text.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
+// Average adult reading speed for online prose.
+const WORDS_PER_MINUTE = 225;
+
+/**
+ * Human reading-time label from a word count, e.g. "≈ 6 min read".
+ * Returns null when the count is missing or too small to be meaningful.
+ */
+export function readingTime(wordCount: number | null | undefined): string | null {
+  if (!wordCount || wordCount < 1) return null;
+  const minutes = Math.max(1, Math.round(wordCount / WORDS_PER_MINUTE));
+  return `≈ ${minutes} min read`;
+}

@@ -2,7 +2,7 @@ import { ViewTransition } from "react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/format";
+import { formatDate, readingTime } from "@/lib/format";
 import { TagFilterDropdown } from "../_components/tag-filter-dropdown";
 import { PageTransition } from "../_components/page-transition";
 import { VoteButtons } from "../_components/vote-buttons";
@@ -177,6 +177,9 @@ export default async function FeedPage({
                         </span>
                       )}
                       <span>💡 {b._count.takeaways} takeaways</span>
+                      {readingTime(b.wordCount) && (
+                        <span>🕐 {readingTime(b.wordCount)}</span>
+                      )}
                       <span className="ml-auto font-medium text-accent group-hover:underline">
                         Read summary →
                       </span>

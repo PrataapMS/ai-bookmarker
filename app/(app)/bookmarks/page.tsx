@@ -2,11 +2,12 @@ import { ViewTransition } from "react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/format";
+import { formatDate, readingTime } from "@/lib/format";
 import { AddBookmarkForm } from "../_components/add-bookmark-form";
 import { StatusBadge } from "../_components/status-badge";
 import { StatusPoller } from "../_components/status-poller";
 import { TagFilterDropdown } from "../_components/tag-filter-dropdown";
+import { ReadToggle } from "../_components/read-toggle";
 import { PageTransition } from "../_components/page-transition";
 
 export const dynamic = "force-dynamic";
@@ -16,12 +17,27 @@ export const maxDuration = 300;
 
 const VISIBLE_CARD_TAGS = 3;
 
+type View = "to-read" | "read" | "all";
+
+function viewHref(view: View, tag?: string): string {
+  const params = new URLSearchParams();
+  if (view !== "to-read") params.set("view", view);
+  if (tag) params.set("tag", tag);
+  const qs = params.toString();
+  return qs ? `/bookmarks?${qs}` : "/bookmarks";
+}
+
 export default async function BookmarksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tag?: string }>;
+  searchParams: Promise<{ tag?: string; view?: string }>;
 }) {
-  const [user, { tag }] = await Promise.all([requireUser(), searchParams]);
+  const [user, { tag, view: viewParam }] = await Promise.all([
+    requireUser(),
+    searchParams,
+  ]);
+  const view: View =
+    viewParam === "read" ? "read" : viewParam === "all" ? "all" : "to-read";
 
   const bookmarks = await prisma.bookmark.findMany({
     where: { userId: user.id },
@@ -40,11 +56,64 @@ export default async function BookmarksPage({
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const activeTag = tag && tagCounts.has(tag) ? tag : undefined;
+
+  // "To read" = anything the reading queue still holds (unread), "Read" = done.
+  const byView = bookmarks.filter((b) =>
+    view === "read" ? b.readAt : view === "to-read" ? !b.readAt : true,
+  );
   const visible = activeTag
-    ? bookmarks.filter((b) => b.tags.includes(activeTag))
-    : bookmarks;
+    ? byView.filter((b) => b.tags.includes(activeTag))
+    : byView;
+
+  // The queue count only means things you can actually read now.
+  const toReadCount = bookmarks.filter(
+    (b) => !b.readAt && b.status === "ready",
+  ).length;
+  const readCount = bookmarks.filter((b) => b.readAt).length;
 
   const anyPending = bookmarks.some((b) => b.status === "pending");
+
+  const viewTab = (value: View, label: string, count?: number) => (
+    <Link
+      href={viewHref(value, activeTag)}
+      aria-current={view === value ? "page" : undefined}
+      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+        view === value
+          ? "bg-accent text-accent-fg"
+          : "text-muted hover:bg-surface hover:text-foreground"
+      }`}
+    >
+      {label}
+      {count !== undefined && count > 0 && (
+        <span
+          className={`rounded-full px-1.5 text-xs ${
+            view === value ? "bg-accent-fg/20" : "bg-surface"
+          }`}
+        >
+          {count}
+        </span>
+      )}
+    </Link>
+  );
+
+  const emptyCopy: Record<View, { title: string; hint: string }> = {
+    "to-read": {
+      title: activeTag ? `Nothing tagged #${activeTag} to read` : "Your reading queue is empty",
+      hint: activeTag
+        ? "Try another tag, or view all bookmarks."
+        : "Paste a link above, or check what you've already read.",
+    },
+    read: {
+      title: activeTag ? `Nothing tagged #${activeTag} read yet` : "Nothing read yet",
+      hint: "Mark a bookmark as read and it'll move here.",
+    },
+    all: {
+      title: activeTag ? `No bookmarks tagged #${activeTag}` : "No bookmarks yet",
+      hint: activeTag
+        ? "Try another tag, or view all bookmarks."
+        : "Paste a link above to save your first read.",
+    },
+  };
 
   return (
     <PageTransition>
@@ -61,17 +130,17 @@ export default async function BookmarksPage({
 
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex gap-1 rounded-xl border border-border bg-background p-1">
+              {viewTab("to-read", "📖 To read", toReadCount)}
+              {viewTab("read", "✓ Read", readCount)}
+              {viewTab("all", "All")}
+            </div>
             <TagFilterDropdown tags={allTags} activeTag={activeTag} />
-            {activeTag && (
-              <p className="text-xs text-muted">
-                {visible.length} of {bookmarks.length} bookmarks
-              </p>
-            )}
           </div>
 
-          {/* Crossfade the list when the tag filter changes (same route). */}
+          {/* Crossfade the list when the view or tag filter changes (same route). */}
           <ViewTransition
-            key={activeTag ?? "all"}
+            key={`${view}:${activeTag ?? "all"}`}
             name="bookmark-list"
             share="auto"
             default="none"
@@ -80,25 +149,28 @@ export default async function BookmarksPage({
               {visible.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-surface p-10 text-center">
                   <p className="text-3xl">📚</p>
-                  <p className="mt-2 font-medium">
-                    {activeTag ? `No bookmarks tagged #${activeTag}` : "No bookmarks yet"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted">
-                    {activeTag
-                      ? "Try another tag, or view all bookmarks."
-                      : "Paste a link above to save your first read."}
-                  </p>
+                  <p className="mt-2 font-medium">{emptyCopy[view].title}</p>
+                  <p className="mt-1 text-sm text-muted">{emptyCopy[view].hint}</p>
                 </div>
               ) : (
                 visible.map((b) => {
                   const score = b.votes.reduce((sum, v) => sum + v.value, 0);
+                  const minutes = readingTime(b.wordCount);
+                  const isRead = Boolean(b.readAt);
                   return (
-                    <Link
+                    <article
                       key={b.id}
-                      href={`/bookmarks/${b.id}`}
-                      transitionTypes={["nav-forward"]}
-                      className="block rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50 hover:shadow-sm"
+                      className={`group relative rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50 hover:shadow-sm ${
+                        isRead ? "opacity-70 hover:opacity-100" : ""
+                      }`}
                     >
+                      <Link
+                        href={`/bookmarks/${b.id}`}
+                        transitionTypes={["nav-forward"]}
+                        aria-label={b.title ?? b.url}
+                        className="absolute inset-0 z-0 rounded-xl"
+                      />
+
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <ViewTransition name={`bm-title-${b.id}`} share="morph" default="none">
@@ -142,10 +214,11 @@ export default async function BookmarksPage({
                         </div>
                       )}
 
-                      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted">
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
                         <span title={b.isPublic ? "Visible in the public feed" : "Only you can see this"}>
                           {b.isPublic ? "🌐 Public" : "🔒 Private"}
                         </span>
+                        {minutes && <span>🕐 {minutes}</span>}
                         {b.status === "ready" && (
                           <>
                             <span>💡 {b._count.takeaways} takeaways</span>
@@ -155,8 +228,13 @@ export default async function BookmarksPage({
                         {b.isPublic && (
                           <span title="Feed score">▲ {score}</span>
                         )}
+                        {b.status === "ready" && (
+                          <span className="relative z-10 ml-auto">
+                            <ReadToggle bookmarkId={b.id} read={isRead} />
+                          </span>
+                        )}
                       </div>
-                    </Link>
+                    </article>
                   );
                 })
               )}
