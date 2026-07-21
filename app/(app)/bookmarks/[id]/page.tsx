@@ -16,6 +16,7 @@ import { StatusBadge } from "../../_components/status-badge";
 import { StatusPoller } from "../../_components/status-poller";
 import { PageTransition } from "../../_components/page-transition";
 import { VoteButtons } from "../../_components/vote-buttons";
+import { AddActionItemTodoButton } from "../../_components/add-action-item-todo-button";
 
 export const dynamic = "force-dynamic";
 // Retry re-runs fetch + summarize via after(); allow the platform maximum.
@@ -252,8 +253,8 @@ export default async function BookmarkDetailPage({
                       className="flex items-start justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5"
                     >
                       <span className="text-sm leading-relaxed">{a.text}</span>
-                      {isOwner &&
-                        (a.promotedToTodo ? (
+                      {isOwner ? (
+                        a.promotedToTodo ? (
                           <span className="shrink-0 whitespace-nowrap text-xs text-emerald-600 dark:text-emerald-400">
                             ✓ In todos
                           </span>
@@ -266,7 +267,10 @@ export default async function BookmarkDetailPage({
                               + Add to todos
                             </button>
                           </form>
-                        ))}
+                        )
+                      ) : (
+                        <AddActionItemTodoButton actionItemId={a.id} />
+                      )}
                     </li>
                   );
                 })}

@@ -246,3 +246,27 @@ export async function promoteActionItem(actionItemId: string): Promise<void> {
   revalidatePath(`/bookmarks/${item.bookmarkId}`);
   revalidatePath("/todos");
 }
+
+/**
+ * Copy an action item (yours, or from a public bookmark) into your own todo
+ * list as an independent entry. Unlike promoteActionItem, this never touches
+ * the source ActionItem row, so it can't affect the original bookmark's
+ * action list or any other user's view of it.
+ */
+export async function addActionItemToTodos(actionItemId: string): Promise<void> {
+  const user = await requireUser();
+
+  const item = await prisma.actionItem.findFirst({
+    where: {
+      id: actionItemId,
+      bookmark: { OR: [{ userId: user.id }, { isPublic: true }] },
+    },
+  });
+  if (!item) return;
+
+  await prisma.todo.create({
+    data: { userId: user.id, text: item.text },
+  });
+
+  revalidatePath("/todos");
+}

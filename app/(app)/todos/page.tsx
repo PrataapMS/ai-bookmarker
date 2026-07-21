@@ -7,6 +7,7 @@ import {
   clearCompletedTodos,
 } from "@/app/actions/todos";
 import { AddTodoForm } from "../_components/add-todo-form";
+import { CopyTodosButton } from "../_components/copy-todos-button";
 
 export const dynamic = "force-dynamic";
 
@@ -32,18 +33,23 @@ export default async function TodosPage() {
   return (
     <div className="space-y-6">
       <section>
-        <div className="mb-1 flex items-center justify-between">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Todos</h1>
-          {done.length > 0 && (
-            <form action={clearCompletedTodos}>
-              <button
-                type="submit"
-                className="text-xs text-muted transition hover:text-foreground"
-              >
-                Clear {done.length} completed
-              </button>
-            </form>
-          )}
+          <div className="flex items-center gap-3">
+            <CopyTodosButton
+              todos={todos.map((t) => ({ text: t.text, done: t.done }))}
+            />
+            {done.length > 0 && (
+              <form action={clearCompletedTodos}>
+                <button
+                  type="submit"
+                  className="text-xs text-muted transition hover:text-foreground"
+                >
+                  Clear {done.length} completed
+                </button>
+              </form>
+            )}
+          </div>
         </div>
         <p className="mb-4 text-sm text-muted">
           {open.length} open · {done.length} done. Add action items from any

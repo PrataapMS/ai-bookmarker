@@ -122,21 +122,22 @@ export default async function FeedPage({
                 {scored.map((b) => (
                   <article
                     key={b.id}
-                    className="rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50"
+                    className="group relative rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <Link
+                      href={`/bookmarks/${b.id}`}
+                      transitionTypes={["nav-forward"]}
+                      aria-label={b.title ?? b.url}
+                      className="absolute inset-0 z-0 rounded-xl"
+                    />
+
+                    <div className="relative z-10 flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <Link
-                          href={`/bookmarks/${b.id}`}
-                          transitionTypes={["nav-forward"]}
-                          className="group block"
-                        >
-                          <ViewTransition name={`bm-title-${b.id}`} share="morph" default="none">
-                            <h2 className="truncate font-medium group-hover:text-accent">
-                              {b.title ?? b.url}
-                            </h2>
-                          </ViewTransition>
-                        </Link>
+                        <ViewTransition name={`bm-title-${b.id}`} share="morph" default="none">
+                          <h2 className="truncate font-medium group-hover:text-accent">
+                            {b.title ?? b.url}
+                          </h2>
+                        </ViewTransition>
                         <p className="mt-0.5 truncate text-xs text-muted">
                           {b.siteName ?? new URL(b.url).hostname} ·{" "}
                           {formatDate(b.createdAt)} · by{" "}
@@ -147,10 +148,12 @@ export default async function FeedPage({
                     </div>
 
                     {b.summary && (
-                      <p className="mt-2 line-clamp-3 text-sm text-muted">{b.summary}</p>
+                      <p className="relative z-10 mt-2 line-clamp-3 text-sm text-muted">
+                        {b.summary}
+                      </p>
                     )}
 
-                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
+                    <div className="relative z-10 mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
                       {b.tags.length > 0 && (
                         <span className="flex flex-wrap gap-1.5">
                           {b.tags.slice(0, VISIBLE_CARD_TAGS).map((t) => (
@@ -170,13 +173,9 @@ export default async function FeedPage({
                         </span>
                       )}
                       <span>💡 {b._count.takeaways} takeaways</span>
-                      <Link
-                        href={`/bookmarks/${b.id}`}
-                        transitionTypes={["nav-forward"]}
-                        className="ml-auto font-medium text-accent hover:underline"
-                      >
+                      <span className="ml-auto font-medium text-accent group-hover:underline">
                         Read summary →
-                      </Link>
+                      </span>
                     </div>
                   </article>
                 ))}
