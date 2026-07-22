@@ -98,11 +98,18 @@ export default async function BookmarkDetailPage({
             </span>
           )}
         </div>
-        <ViewTransition name={`bm-title-${bookmark.id}`} share="morph" default="none">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {bookmark.title ?? bookmark.url}
-          </h1>
-        </ViewTransition>
+        <div className="flex items-start justify-between gap-4">
+          <ViewTransition name={`bm-title-${bookmark.id}`} share="morph" default="none">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {bookmark.title ?? bookmark.url}
+            </h1>
+          </ViewTransition>
+          {isOwner && bookmark.status === "ready" && (
+            <span className="shrink-0 pt-0.5">
+              <ReadToggle bookmarkId={bookmark.id} read={Boolean(bookmark.readAt)} variant="detail" />
+            </span>
+          )}
+        </div>
         <a
           href={bookmark.url}
           target="_blank"
@@ -114,13 +121,6 @@ export default async function BookmarkDetailPage({
 
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <VoteButtons bookmarkId={bookmark.id} score={score} myVote={myVote} />
-          {isOwner && bookmark.status === "ready" && (
-            <ReadToggle
-              bookmarkId={bookmark.id}
-              read={Boolean(bookmark.readAt)}
-              variant="detail"
-            />
-          )}
           {isOwner ? (
             <form action={toggleVisibility}>
               <button
