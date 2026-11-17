@@ -95,32 +95,43 @@ function useStepBackTo() {
 }
 
 /**
- * Click handler for top-level tab links. The first step away from the start
- * screen is a normal push (so back returns to it); from there, tab switches
- * replace the current screen instead of stacking.
+ * Navigates to a top-level section. In the installed Android app the first
+ * step away from the start screen is a normal push (so back returns to it);
+ * from there, section switches replace the current screen instead of
+ * stacking, and a section already in history is stepped back to. Elsewhere
+ * it's a plain push.
  */
-export function useTabLinkClick() {
+export function useSectionNavigate() {
   const router = useRouter();
   const stepBackTo = useStepBackTo();
   return useCallback(
-    (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-      const nav = getNavigation();
-      if (!nav?.currentEntry) return;
-      if (e.defaultPrevented || e.button !== 0) return;
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    (href: string, transitionTypes: string[] = []) => {
       if (sameUrl(href, location.href)) return;
-
-      const earlier = findEarlier(nav, href);
-      if (earlier) {
-        e.preventDefault();
-        stepBackTo(nav, earlier);
+      const nav = getNavigation();
+      if (!nav?.currentEntry) {
+        router.push(href, { transitionTypes });
         return;
       }
-      if (nav.currentEntry.index <= rootIndex(nav)) return;
-      e.preventDefault();
-      router.replace(href);
+      const earlier = findEarlier(nav, href);
+      if (earlier) stepBackTo(nav, earlier);
+      else if (nav.currentEntry.index <= rootIndex(nav)) router.push(href, { transitionTypes });
+      else router.replace(href, { transitionTypes });
     },
     [router, stepBackTo],
+  );
+}
+
+/** Click handler for section links; leaves modified clicks (new tab…) alone. */
+export function useSectionLinkClick() {
+  const navigate = useSectionNavigate();
+  return useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, href: string, transitionTypes?: string[]) => {
+      if (e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      navigate(href, transitionTypes);
+    },
+    [navigate],
   );
 }
 
