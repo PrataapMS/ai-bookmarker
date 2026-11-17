@@ -92,6 +92,12 @@ takeaways, action items; action items promote into a todo list.
 
 ## Hard-won gotchas (do not regress)
 
+- **Regenerate the lockfile with CI's npm after any dependency change.** Local
+  npm (11.6) omits optional wasm deps that CI's npm (11.19, bundled with Node
+  24) expects, so `npm ci` fails on the runner. Run
+  `npx -y npm@11.19.1 install --package-lock-only --ignore-scripts` before
+  committing (check the version in a CI log if Node is bumped).
+
 - **`web-push` must stay on v3.** v4 is ESM-only, the same `ERR_REQUIRE_ESM`
   trap as jsdom below if Next externalizes it.
 
