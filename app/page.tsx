@@ -161,11 +161,13 @@ export default async function LandingPage() {
 
         {/* Real-world example */}
         <section className="rise-in pb-14" style={{ animationDelay: "340ms" }}>
-          <div className="group relative rounded-2xl p-[1px]">
+          {/* overflow-hidden keeps the oversized spinner inside the card; left
+              unclipped it covered (and swallowed clicks on) the CTA above. */}
+          <div className="group relative overflow-hidden rounded-2xl p-[1px]">
             {/* animated gradient border */}
             <div
               aria-hidden
-              className="spin-slow absolute inset-[-40%] opacity-40 blur-sm transition-opacity group-hover:opacity-70"
+              className="spin-slow pointer-events-none absolute inset-[-40%] opacity-40 blur-sm transition-opacity group-hover:opacity-70"
               style={{
                 background:
                   "conic-gradient(from 0deg, #6366f1, #a855f7, #ec4899, #6366f1)",
