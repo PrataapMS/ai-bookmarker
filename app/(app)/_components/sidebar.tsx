@@ -4,15 +4,9 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/actions/auth";
-import { useTabLinkClick } from "./app-history";
+import { useSectionLinkClick } from "./app-history";
+import { NAV_ITEMS, activeSection, sectionTransition } from "./nav-items";
 import { ThemeToggle } from "./theme-toggle";
-
-const NAV_ITEMS = [
-  { href: "/bookmarks", label: "Bookmarks", icon: "📑" },
-  { href: "/feed", label: "Feed", icon: "🌐" },
-  { href: "/starred", label: "Starred", icon: "⭐" },
-  { href: "/todos", label: "Todos", icon: "✅" },
-];
 
 function MenuIcon() {
   return (
@@ -58,12 +52,8 @@ function SignOutIcon() {
 export function Sidebar({ email }: { email: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  // A bookmark opened from the feed (or Starred) keeps that tab highlighted,
-  // even though its URL still lives under /bookmarks/[id].
-  const from = searchParams.get("from") ?? "";
-  const fromSection = NAV_ITEMS.find((item) => from.startsWith(item.href))?.href;
-  const activePath = fromSection ?? pathname;
-  const onTabClick = useTabLinkClick();
+  const active = activeSection(pathname, searchParams.get("from"));
+  const onSectionClick = useSectionLinkClick();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -104,34 +94,16 @@ export function Sidebar({ email }: { email: string }) {
         >
           <MenuIcon />
         </button>
-        <Link href="/bookmarks" onClick={(e) => onTabClick(e, "/bookmarks")} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold">
+        <Link
+          href="/bookmarks"
+          onClick={(e) => onSectionClick(e, "/bookmarks", sectionTransition(active, "/bookmarks"))}
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold"
+        >
           <span className="text-lg" aria-hidden>
             🔖
           </span>
-          <span className="hidden min-[400px]:inline">BookmarkAI</span>
+          <span>BookmarkAI</span>
         </Link>
-        <div className="ml-auto flex items-center gap-1">
-          {NAV_ITEMS.map((item) => {
-            const active = activePath.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={(e) => onTabClick(e, item.href)}
-                aria-label={item.label}
-                title={item.label}
-                aria-current={active ? "page" : undefined}
-                className={`flex h-10 w-10 items-center justify-center rounded-md text-xl transition ${
-                  active
-                    ? "bg-background"
-                    : "opacity-70 hover:bg-background hover:opacity-100"
-                }`}
-              >
-                <span aria-hidden>{item.icon}</span>
-              </Link>
-            );
-          })}
-        </div>
       </header>
 
       {mobileOpen && (
@@ -154,7 +126,7 @@ export function Sidebar({ email }: { email: string }) {
         >
           <Link
             href="/bookmarks"
-            onClick={(e) => onTabClick(e, "/bookmarks")}
+            onClick={(e) => onSectionClick(e, "/bookmarks", sectionTransition(active, "/bookmarks"))}
             className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold hover:bg-background"
             title="BookmarkAI"
           >
@@ -184,21 +156,22 @@ export function Sidebar({ email }: { email: string }) {
           </button>
         </div>
 
-        {/* The nav items live in the mobile top bar as quick-access icons,
-            so the drawer only lists them at md+ where the top bar is gone. */}
+        {/* On mobile the sections live in the bottom tab bar, so the drawer
+            only lists them at md+. */}
         <nav className={`hidden flex-col gap-1 p-3 text-sm font-medium md:flex ${collapsed ? "md:mt-10" : ""}`}>
           {NAV_ITEMS.map((item) => {
-            const active = activePath.startsWith(item.href);
+            const isActive = active === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={(e) => onTabClick(e, item.href)}
+                onClick={(e) => onSectionClick(e, item.href, sectionTransition(active, item.href))}
+                aria-current={isActive ? "page" : undefined}
                 title={item.label}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 transition ${
                   collapsed ? "md:justify-center md:px-0" : ""
                 } ${
-                  active
+                  isActive
                     ? "bg-background text-foreground"
                     : "text-muted hover:bg-background hover:text-foreground"
                 }`}
@@ -229,6 +202,37 @@ export function Sidebar({ email }: { email: string }) {
           </form>
         </div>
       </aside>
+
+      {/* Bottom tab bar: the mobile way between sections (swiping works too). */}
+      <nav
+        aria-label="Sections"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      >
+        <div className="mx-auto grid max-w-md grid-cols-4">
+          {NAV_ITEMS.map((item) => {
+            const isActive = active === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={(e) => onSectionClick(e, item.href, sectionTransition(active, item.href))}
+                aria-current={isActive ? "page" : undefined}
+                className="flex flex-col items-center gap-0.5 pb-2 pt-1.5 text-[11px] font-medium"
+              >
+                <span
+                  aria-hidden
+                  className={`flex h-8 w-14 items-center justify-center rounded-full text-lg transition ${
+                    isActive ? "bg-accent/15" : "opacity-60"
+                  }`}
+                >
+                  {item.icon}
+                </span>
+                <span className={isActive ? "text-foreground" : "text-muted"}>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </>
   );
 }

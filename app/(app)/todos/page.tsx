@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/todos";
 import { AddTodoForm } from "../_components/add-todo-form";
 import { CopyTodosButton } from "../_components/copy-todos-button";
+import { PageTransition } from "../_components/page-transition";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function TodosPage() {
   const done = todos.filter((t) => t.done);
 
   return (
+    <PageTransition>
     <div className="space-y-6">
       <section>
         <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
@@ -123,5 +125,6 @@ export default async function TodosPage() {
         </ul>
       )}
     </div>
+    </PageTransition>
   );
 }

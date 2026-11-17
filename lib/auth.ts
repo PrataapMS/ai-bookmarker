@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
@@ -65,16 +66,17 @@ async function getUserIdFromSession(): Promise<string | null> {
 
 /**
  * Returns the signed-in user (id + email) or null. Safe to call in any
- * server component or server action.
+ * server component or server action. Memoized per request, so the layout
+ * and page share one lookup.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const userId = await getUserIdFromSession();
   if (!userId) return null;
   return prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, email: true },
   });
-}
+});
 
 /** Returns the current user or redirects to /login. Use in protected pages. */
 export async function requireUser() {

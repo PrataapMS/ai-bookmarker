@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Compact list density, toggled on <html data-density> (see DensityToggle). */
+@custom-variant compact (&:where([data-density="compact"], [data-density="compact"] *));
+
 :root {
   --background: #f7f7f5;
   --surface: #ffffff;

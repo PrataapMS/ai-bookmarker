@@ -39,6 +39,8 @@ export default async function BookmarkDetailPage({
   // Owners see their own bookmarks; public ones are readable by anyone signed in.
   const bookmark = await prisma.bookmark.findFirst({
     where: { id, OR: [{ userId: user.id }, { isPublic: true }] },
+    // The extracted article text is only for re-processing; never ship it to a page.
+    omit: { rawText: true },
     include: {
       takeaways: { orderBy: { order: "asc" } },
       actionItems: { orderBy: { order: "asc" } },
@@ -111,18 +113,12 @@ export default async function BookmarkDetailPage({
             </span>
           )}
         </div>
-        <div className="flex items-start justify-between gap-4">
-          <ViewTransition name={`bm-title-${bookmark.id}`} share="morph" default="none">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {bookmark.title ?? bookmark.url}
-            </h1>
-          </ViewTransition>
-          {isOwner && bookmark.status === "ready" && (
-            <span className="shrink-0 pt-0.5">
-              <ReadToggle bookmarkId={bookmark.id} read={Boolean(bookmark.readAt)} variant="detail" />
-            </span>
-          )}
-        </div>
+        {/* Full width: actions live in the row below so a long title isn't squeezed. */}
+        <ViewTransition name={`bm-title-${bookmark.id}`} share="morph" default="none">
+          <h1 className="text-xl font-semibold leading-snug tracking-tight break-words sm:text-2xl">
+            {bookmark.title ?? bookmark.url}
+          </h1>
+        </ViewTransition>
         <a
           href={bookmark.url}
           target="_blank"
@@ -132,7 +128,10 @@ export default async function BookmarkDetailPage({
           {bookmark.url} ↗
         </a>
 
-        <div className="flex flex-wrap items-center gap-3 pt-1">
+        <div className="flex flex-wrap items-center gap-2 pt-1 sm:gap-3">
+          {isOwner && bookmark.status === "ready" && (
+            <ReadToggle bookmarkId={bookmark.id} read={Boolean(bookmark.readAt)} variant="detail" />
+          )}
           <VoteButtons bookmarkId={bookmark.id} score={score} myVote={myVote} />
           <StarButton
             bookmarkId={bookmark.id}

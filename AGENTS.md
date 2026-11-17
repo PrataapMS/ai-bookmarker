@@ -84,7 +84,7 @@ takeaways, action items; action items promote into a todo list.
   (see `app/actions/bookmarks.ts`). Fire-and-forget promises die when the
   serverless function freezes after the response.
 - Pages whose server actions do fetch + summarize export `maxDuration = 300`
-  (`app/(app)/bookmarks/page.tsx`, `app/(app)/bookmarks/[id]/page.tsx`). Keep it on any
+  (`app/(app)/bookmarks/(list)/page.tsx`, `app/(app)/bookmarks/[id]/page.tsx`). Keep it on any
   new page that triggers processing.
 - Signups are invite-gated when `SIGNUP_CODE` is set (prod: set; local: unset →
   open signup). Don't remove the gate — it protects the OpenRouter budget.
