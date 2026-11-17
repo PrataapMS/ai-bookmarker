@@ -84,3 +84,13 @@
     animation: none !important;
   }
 }
+
+/* Date/time sheet: slides up on phones, fades in as a dialog on desktop. */
+@keyframes sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.sheet-in { animation: sheet-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .sheet-in { animation: none; }
+}

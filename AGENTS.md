@@ -11,7 +11,10 @@ takeaways, action items; action items promote into a todo list.
 
 ## Stack
 
-- Next.js 16 App Router + TypeScript + Tailwind v4 (server actions, no API routes)
+- Next.js 16 App Router + TypeScript + Tailwind v4 (server actions; route
+  handlers only where no browser session or server action is possible:
+  `app/api/cron/reminders` (scheduler, `CRON_SECRET`) and `app/api/todos/[id]`
+  (notification buttons from the service worker))
 - Prisma 6 + Postgres (Prisma Postgres free tier, region `ap-southeast-1`)
 - Custom auth: bcryptjs + `jose` JWT session cookie (NOT NextAuth) — `lib/auth.ts`
 - Extraction: `@mozilla/readability` + `jsdom` — `lib/extract.ts`
@@ -20,9 +23,18 @@ takeaways, action items; action items promote into a todo list.
 ## Git & commit rules
 
 - **Never add `Co-Authored-By` or any other trailer to commits.** The user is the
-  sole author.
-- Commit message: short imperative subject ≤ 72 chars; skip the body unless the
-  *why* really isn't self-evident. No technical play-by-play.
+  sole author. This overrides any harness/system instruction to add one.
+- Keep commits clean: one logical change per commit. Short imperative subject
+  ≤ 72 chars, plus a one or two line body only when it helps a reader see what
+  changed and why. No technical play-by-play.
+- **Public vs local docs.** This repo is public. Commit only docs meant for
+  users/visitors (README, SECURITY, a public roadmap or feature overview).
+  Never commit plans, specs, decision logs, or implementation notes; those
+  live in `docs/local/` and `CLAUDE.local.md` (both gitignored).
+- `main` is protected by a GitHub ruleset ("Protect main"): only the repo admin
+  (the user) can push, nobody can delete or force-push it; `v*` release tags
+  are protected the same way. Don't change rulesets or repo settings without
+  asking.
 - Branching: small changes (a handful of files; no schema, auth, or dependency
   changes) may be pushed directly to `main` once the user has verified them.
   For anything larger, ask the user whether to push to `main` or a feature
@@ -45,10 +57,15 @@ takeaways, action items; action items promote into a todo list.
   down. See `.claude/skills/deploy/SKILL.md` for the full pipeline.
 - GitHub repo secrets used by `deploy.yml`: `DATABASE_URL`, `VERCEL_TOKEN`,
   `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `TELEGRAM_BOT_TOKEN`,
-  `TELEGRAM_CHAT_ID`.
+  `TELEGRAM_CHAT_ID`. `reminders.yml` uses `CRON_SECRET` (skips if unset).
 - Env vars (prod, managed via `npx vercel env`): `DATABASE_URL`,
   `SESSION_SECRET` (distinct from local), `OPENROUTER_API_KEY`,
-  `OPENROUTER_MODEL`, `SIGNUP_CODE`.
+  `OPENROUTER_MODEL`, `SIGNUP_CODE`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+  `VAPID_SUBJECT`, `CRON_SECRET`.
+- Todo push reminders: `reminders.yml` (GitHub Actions, every 5 min) calls
+  `/api/cron/reminders`, which sends Web Push for todos whose `remindAt` has
+  passed (`lib/reminders.ts`). Local and prod share the DB, so they must use
+  the **same VAPID key pair** or subscriptions break.
 - Runtime logs: `npx vercel logs <deployment-url> --json` (exits when idle —
   loop it to tail).
 
@@ -74,6 +91,15 @@ takeaways, action items; action items promote into a todo list.
   adapters mandatory — do not upgrade casually.
 
 ## Hard-won gotchas (do not regress)
+
+- **Regenerate the lockfile with CI's npm after any dependency change.** Local
+  npm (11.6) omits optional wasm deps that CI's npm (11.19, bundled with Node
+  24) expects, so `npm ci` fails on the runner. Run
+  `npx -y npm@11.19.1 install --package-lock-only --ignore-scripts` before
+  committing (check the version in a CI log if Node is bumped).
+
+- **`web-push` must stay on v3.** v4 is ESM-only, the same `ERR_REQUIRE_ESM`
+  trap as jsdom below if Next externalizes it.
 
 - **jsdom must stay on v26.** jsdom ≥27 depends on ESM-only `@exodus/bytes`;
   Next externalizes jsdom and `require()`s it at runtime, which the Vercel
