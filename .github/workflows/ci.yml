@@ -1,0 +1,108 @@
+name: CI
+
+# PRs and pushes to main are linted and built, and every build is reported on Telegram.
+# On main, a major or minor version bump in package.json (e.g. 1.2.x -> 1.3.0 or 2.0.0) deploys
+# to production through deploy.yml; patch bumps don't. Docs-only changes skip CI.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', '.claude/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', '.claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Newer pushes cancel older runs on feature branches; main always runs to completion.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  # Deploys only when the major or minor version goes up in this push (not on patch bumps).
+  release-check:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - id: check
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # Prints "major minor" from package.json on stdin; "0 0" if it can't be read.
+          majmin() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const [a,b]=JSON.parse(s).version.split(".").map(Number);console.log(a,b)}catch{console.log(0,0)}})'; }
+          read -r new_major new_minor < <(majmin < package.json)
+          read -r old_major old_minor < <(git show "$BEFORE:package.json" 2>/dev/null | majmin || echo 0 0)
+          echo "major.minor: $old_major.$old_minor -> $new_major.$new_minor"
+          if [ "$new_major" -gt "$old_major" ] ||
+             { [ "$new_major" -eq "$old_major" ] && [ "$new_minor" -gt "$old_minor" ]; }; then
+            deploy=true
+          else
+            deploy=false
+          fi
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+
+  # Reports every build (pass or fail) on Telegram; superseded runs that were cancelled stay quiet.
+  # A notification problem never fails CI.
+  notify:
+    needs: [verify, release-check]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BUILD_RESULT: ${{ needs.verify.result }}
+          WILL_DEPLOY: ${{ needs.release-check.outputs.deploy }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          COMPARE_URL: ${{ github.event.compare }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_BRANCH: ${{ github.head_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/notify-telegram.mjs build
+
+  # deploy.yml lints and builds again itself, so a broken release is still reported on Telegram.
+  deploy:
+    needs: release-check
+    if: needs.release-check.outputs.deploy == 'true'
+    permissions:
+      contents: write # release tag
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

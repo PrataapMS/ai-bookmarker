@@ -1,12 +1,16 @@
 ---
 name: deploy
-description: Ship BookmarkAI changes — build + lint, hand off to the user for manual verification, push, deploy to Vercel production, smoke-test the live site. Use when the user asks to deploy, ship, release, or push to production.
+description: Ship BookmarkAI changes — build + lint, hand off to the user for manual verification, open a release PR that bumps the minor (or major) version; GitHub Actions then migrates, deploys to Vercel production, smoke-tests, tags and notifies Telegram. Use when the user asks to deploy, ship, release, or push to production.
 ---
 
 # Ship BookmarkAI changes to production
 
 Pre-flight — read `AGENTS.md` first (commit rules, gotchas). Then follow the
 pipeline in order; each step gates the next.
+
+Production deploys happen **only in GitHub Actions**: a push to `main` that
+raises the **major or minor** `package.json` version triggers `.github/workflows/deploy.yml`
+(via `ci.yml`). Nobody runs `vercel deploy` or Prisma migrations by hand.
 
 ## 1. Automated checks — machines only, no browsing loops
 
@@ -15,41 +19,48 @@ pipeline in order; each step gates the next.
   curl authenticated pages to "see" the change working — that wastes time and
   duplicates the user's manual check in step 2. (Their dev server is usually
   already running on :3000 and hot-reloads.)
-- **Migrations**: if `prisma/schema.prisma` changed, run
-  `npx prisma migrate dev --name <change>` BEFORE deploying (Vercel build does
-  not run migrations; the shared DB must be migrated first, and the old code
-  must tolerate the new schema for the seconds until the deploy lands).
+- **Migrations**: if `prisma/schema.prisma` changed, generate the SQL with
+  `prisma migrate diff` as described in AGENTS.md ("Database & migrations")
+  and commit the migration folder. Do NOT apply it locally; `deploy.yml` runs
+  `prisma migrate deploy` right before the Vercel deploy. The migration must be
+  additive so the old code tolerates the new schema for the minute until the
+  deploy lands.
 
 ## 2. Hand off for manual verification
 
 Stop and give the user a short checklist: which pages/flows changed and what
-to look for. Wait for their explicit go-ahead. Do not push or deploy until
-they confirm (or they already told you to skip verification and ship).
+to look for. Wait for their explicit go-ahead. Do not push until they confirm
+(or they already told you to skip verification and ship).
 
 ## 3. Commit and push
 
 - Commit rules per `AGENTS.md`: imperative subject ≤ 72 chars, short, no
   Co-Authored-By or other trailers.
 - **Small change** (rule of thumb: a handful of files, no schema, auth,
-  or dependency changes) → push directly to `main`.
+  or dependency changes) → push directly to `main`. This runs CI but does
+  **not** deploy.
 - **Anything larger or riskier** → ask the user where to push, offering
   `main` or a feature branch (AskUserQuestion with those two options).
 - Never force-push without explicit user instruction.
 
-## 4. Deploy
+## 4. Release (this is what deploys)
 
-`npx vercel deploy --prod --yes` — run it **once**. If the output looks
-truncated or odd, check `npx vercel ls ai-bookmarker` before re-running;
-a blind re-run creates a duplicate production deployment.
+On a `release/x.y.0` branch: `npm version minor --no-git-tag-version` (or
+`major` for breaking/milestone releases), commit `Release x.y.0` (package.json +
+package-lock.json), open a PR to `main`. Patch bumps don't deploy; their
+changes ship with the next minor or major.
+When the user merges it, Actions deploys. Don't push tags yourself; the
+workflow creates `vX.Y.Z` and the GitHub Release after a successful deploy.
 
-## 5. Smoke test — three curls, run once
+To redeploy without a version bump (e.g. after an env var change), run
+**Deploy to Vercel** from the Actions tab (`gh workflow run deploy.yml`).
 
-- `curl -s -o /dev/null -w "%{http_code}\n" https://ai-bookmarker.vercel.app/login` → `200`
-- `curl -s -o /dev/null -w "%{http_code}\n" https://ai-bookmarker.vercel.app/` → `200` (public landing)
-- `curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://ai-bookmarker.vercel.app/bookmarks` → `307 …/login`
+## 5. Watch the run
 
-Stop there. Signed-in end-to-end testing on prod is the user's job — report
-the smoke-test results and hand back.
+`gh run watch` (or the Actions tab). `deploy.yml` smoke-tests `/login` (200),
+`/` (200) and `/bookmarks` (307 → `/login`) and posts the outcome to Telegram,
+including any migrations applied and the stage that failed. Signed-in
+end-to-end testing on prod is the user's job.
 
 ## 6. Watch logs — only on request or reported problem
 
@@ -61,13 +72,16 @@ idle, so loop it):
 ## Env var changes
 
 `printf '%s' "$VALUE" | npx vercel env add NAME production` (never echo secrets
-to output). After changing env vars, redeploy — they are baked in at deploy time.
+to output). After changing env vars, redeploy (run `deploy.yml` by hand); they
+are baked in at deploy time. If `DATABASE_URL` changes, update the GitHub repo
+secret too (`gh secret set DATABASE_URL`).
 
 ## Rollback
 
 `npx vercel ls ai-bookmarker` to list deployments, then
 `npx vercel promote <previous-deployment-url>` to instantly point production
-back at a known-good build (no rebuild needed).
+back at a known-good build (no rebuild needed). Migrations are not rolled back;
+write a new forward migration if one must be undone.
 
 ## Known failure signature
 

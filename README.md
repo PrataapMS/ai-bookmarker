@@ -64,7 +64,7 @@ git clone https://github.com/PrataapMS/ai-bookmarker.git
 cd ai-bookmarker
 npm install
 cp .env.example .env        # then edit .env (see below)
-npx prisma migrate dev      # applies migrations to your Postgres database
+npx prisma migrate deploy   # applies migrations to your own Postgres database
 npm run dev                 # http://localhost:3000
 ```
 
@@ -160,8 +160,32 @@ The app is deployed to **Vercel** with serverless functions pinned to the
 - **Background work** in server actions uses `after()` from `next/server` so it
   survives the serverless response lifecycle.
 - Pages that trigger fetch + summarize export `maxDuration = 300`.
-- Prisma **migrations are applied from a dev machine**, not during deploy — the
-  Vercel build only runs `prisma generate`.
+- The Vercel build only runs `prisma generate`; migrations are applied by
+  GitHub Actions just before each deploy.
+
+### CI/CD (GitHub Actions)
+
+- **`ci.yml`** lints and builds every pull request and push to `main`, and
+  reports each build (pass or fail, with the commits) on Telegram.
+- **`deploy.yml`** runs when a push to `main` raises the **major or minor**
+  version in `package.json` (e.g. 1.2.x → 1.3.0; patch bumps never deploy), or by
+  hand from the Actions tab. It lints and builds, applies pending migrations
+  (`prisma migrate deploy`), deploys to Vercel production, smoke-tests the live
+  site, tags `vX.Y.Z` with a GitHub Release, and posts what's new since the
+  last release (app changes, migrations) on Telegram, or the stage that failed.
+
+Both notifications come from [`scripts/notify-telegram.mjs`](scripts/notify-telegram.mjs);
+a notification problem never fails CI or a deploy.
+
+Repository secrets it needs:
+
+| Secret | Value |
+|---|---|
+| `DATABASE_URL` | Production Postgres URL (for migrations) |
+| `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens), scoped to the project's team |
+| `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | `orgId` and `projectId` from `.vercel/project.json` after `npx vercel link` |
+| `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) (`/newbot`) |
+| `TELEGRAM_CHAT_ID` | Message the bot, then read `message.chat.id` from `https://api.telegram.org/bot<token>/getUpdates` |
 
 ## 📄 License
 

@@ -35,10 +35,17 @@ takeaways, action items; action items promote into a todo list.
 - Production: https://ai-bookmarker.vercel.app — Vercel Hobby, project
   `ai-bookmarker`, scope `prtps-projects`. Functions pinned to `sin1`
   (vercel.json) to sit next to the database.
-- Deploys are CLI-driven (no git integration): `npx vercel deploy --prod --yes`.
-  Always run `npm run build` locally first, and hand the change to the user for
-  manual verification before pushing/deploying (unless they told you to skip
-  it). See `.claude/skills/deploy/SKILL.md` for the full pipeline.
+- Deploys run in GitHub Actions (no Vercel git integration). `ci.yml` lints and
+  builds every PR and push to `main` and reports each build on Telegram. When a
+  push to `main` raises the **major or minor** `package.json` version (e.g.
+  1.2.x → 1.3.0 or 2.0.0; patch bumps never deploy), `deploy.yml` lints, builds,
+  applies migrations, runs `vercel deploy --prod`, smoke-tests, tags `vX.Y.Z`
+  with a GitHub Release, and reports what's new on Telegram. `deploy.yml` can also be run
+  by hand from the Actions tab. Don't deploy from a laptop unless Actions is
+  down. See `.claude/skills/deploy/SKILL.md` for the full pipeline.
+- GitHub repo secrets used by `deploy.yml`: `DATABASE_URL`, `VERCEL_TOKEN`,
+  `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `TELEGRAM_BOT_TOKEN`,
+  `TELEGRAM_CHAT_ID`.
 - Env vars (prod, managed via `npx vercel env`): `DATABASE_URL`,
   `SESSION_SECRET` (distinct from local), `OPENROUTER_API_KEY`,
   `OPENROUTER_MODEL`, `SIGNUP_CODE`.
@@ -51,10 +58,18 @@ takeaways, action items; action items promote into a todo list.
   local Prisma access as production access. Never write test/seed data or run
   destructive commands (`migrate reset`, `db push --force-reset`) without
   explicit user approval.
-- Schema change flow: edit `prisma/schema.prisma` → `npx prisma migrate dev
-  --name <name>` (applies to the shared DB) → commit the migration folder.
-- The Vercel build only runs `prisma generate` — migrations are applied from a
-  dev machine, never during deploy.
+- Migrations are applied **only by `deploy.yml`** (`prisma migrate deploy`,
+  right before the Vercel deploy). Never run `prisma migrate dev` or `migrate
+  deploy` locally: against the shared DB it would apply the migration to
+  production ahead of the code.
+- Schema change flow: edit `prisma/schema.prisma` → write the SQL without
+  touching the DB (`--from-schema-datasource` only reads it):
+  `mkdir prisma/migrations/<YYYYMMDDHHMMSS>_<name> && npx prisma migrate diff
+  --from-schema-datasource prisma/schema.prisma --to-schema-datamodel
+  prisma/schema.prisma --script > prisma/migrations/<…>/migration.sql` →
+  review the SQL → commit it with the release. Migrations must be additive
+  (old code keeps running against the new schema until the deploy lands).
+- The Vercel build only runs `prisma generate`.
 - Stay on **Prisma 6** with a plain `postgres://` URL. Prisma 7 makes driver
   adapters mandatory — do not upgrade casually.
 
@@ -81,8 +96,7 @@ takeaways, action items; action items promote into a todo list.
   servers, mint session cookies, or curl signed-in pages to check your own
   work. Hand the user a short checklist of what to click through instead;
   their dev server is usually already running on :3000 and hot-reloads.
-- After deploying: `curl -s -o /dev/null -w "%{http_code}" https://ai-bookmarker.vercel.app/login`
-  should return 200, `/` should return 200 (public landing page), and
-  `/bookmarks` should 307-redirect to `/login` when signed out. Run each once.
+- After deploying, `deploy.yml` smoke-tests production: `/login` → 200, `/`
+  → 200 (public landing page), `/bookmarks` → 307 to `/login` when signed out.
 - Real end-to-end (add bookmark → status `ready`) requires a signed-in browser
   session; ask the user to verify, or get approval before touching prod data.
