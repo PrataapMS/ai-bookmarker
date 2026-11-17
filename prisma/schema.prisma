@@ -11,14 +11,15 @@ datasource db {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
-  createdAt    DateTime   @default(now())
-  bookmarks    Bookmark[]
-  todos        Todo[]
-  votes        Vote[]
-  stars        Star[]
+  id                String             @id @default(cuid())
+  email             String             @unique
+  passwordHash      String
+  createdAt         DateTime           @default(now())
+  bookmarks         Bookmark[]
+  todos             Todo[]
+  votes             Vote[]
+  stars             Star[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Bookmark {
@@ -28,15 +29,15 @@ model Bookmark {
   url         String
   title       String?
   siteName    String?
-  contentType String?      // article | blog | docs | other
+  contentType String? // article | blog | docs | other
   status      String       @default("pending") // pending | ready | failed
-  error       String?      // human-friendly failure reason
+  error       String? // human-friendly failure reason
   summary     String?
-  rawText     String?      // extracted article text (for re-processing)
+  rawText     String? // extracted article text (for re-processing)
   isPublic    Boolean      @default(false) // public bookmarks appear in the shared feed
   tags        String[]     @default([]) // lowercase topic tags for categorizing/filtering
-  wordCount   Int?         // extracted article length, counted once at processing time
-  readAt      DateTime?    // when the owner marked it read; null = still in the reading queue
+  wordCount   Int? // extracted article length, counted once at processing time
+  readAt      DateTime? // when the owner marked it read; null = still in the reading queue
   createdAt   DateTime     @default(now())
   takeaways   Takeaway[]
   actionItems ActionItem[]
@@ -104,6 +105,30 @@ model Todo {
   createdAt          DateTime    @default(now())
   sourceActionItemId String?     @unique
   sourceActionItem   ActionItem? @relation(fields: [sourceActionItemId], references: [id], onDelete: SetNull)
+  // Manual order of the open list (drag to reorder); lower comes first.
+  position           Int         @default(0)
+  // Due instant. All-day todos store 09:00 local time and hide the time in the UI.
+  dueAt              DateTime?
+  dueAllDay          Boolean     @default(false)
+  // Hidden from the open list until this instant passes.
+  snoozedUntil       DateTime?
+  // When the next push reminder should go out (due time or snooze end);
+  // cleared once sent so each reminder fires exactly once.
+  remindAt           DateTime?
 
   @@index([userId, done])
+  @@index([remindAt])
+}
+
+// A browser/device that opted into push reminders (Web Push API).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

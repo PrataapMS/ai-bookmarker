@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { processBookmark } from "@/lib/process-bookmark";
 import { bookmarkUrlSchema, saveBookmark } from "@/lib/save-bookmark";
 import { normalizeTag, normalizeTags } from "@/lib/tags";
+import { topPosition } from "@/lib/todo-order";
 
 export type AddState = { error?: string } | undefined;
 
@@ -176,12 +177,14 @@ export async function promoteActionItem(actionItemId: string): Promise<void> {
   });
   if (!item || item.promotedToTodo) return;
 
+  const position = await topPosition(user.id);
   await prisma.$transaction([
     prisma.todo.create({
       data: {
         userId: user.id,
         text: item.text,
         sourceActionItemId: item.id,
+        position,
       },
     }),
     prisma.actionItem.update({
@@ -212,7 +215,11 @@ export async function addActionItemToTodos(actionItemId: string): Promise<void> 
   if (!item) return;
 
   await prisma.todo.create({
-    data: { userId: user.id, text: item.text },
+    data: {
+      userId: user.id,
+      text: item.text,
+      position: await topPosition(user.id),
+    },
   });
 
   revalidatePath("/todos");
