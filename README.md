@@ -71,7 +71,12 @@ list. Your reading list stops being a graveyard.
 ### Turn reading into doing
 
 - **✅ Action items to todos.** Promote any suggested action into a built-in
-  todo list, check it off, or copy your todos out.
+  todo list with due dates, drag-to-reorder and snooze.
+- **🔔 Due-date reminders.** Opt in to push notifications on your phone or
+  desktop; mark a todo done or snooze it straight from the notification.
+- **📤 Take it anywhere.** Copy a bookmark's summary, takeaways or action items
+  as Markdown; export todos as Markdown or CSV, share them, or add one to
+  Google Calendar in a tap.
 - **⭐ Stars, streaks and surprises.** Star favourites, keep a reading streak
   going, let *Surprise me* pick something from your backlog, and discover
   related reads.
@@ -163,6 +168,9 @@ paste a link.
 | `OPENROUTER_API_KEY` | ✅ | Key from [openrouter.ai/keys](https://openrouter.ai/keys), needed for summaries |
 | `OPENROUTER_MODEL` | | e.g. `anthropic/claude-sonnet-5` (quality) or `anthropic/claude-haiku-4.5` (cheaper, faster) |
 | `SIGNUP_CODE` | | Invite code that gates signups when set; leave unset for open signup |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | | Push reminder keys: `npx web-push generate-vapid-keys` |
+| `VAPID_SUBJECT` | | Contact for push services, e.g. `mailto:you@example.com` |
+| `CRON_SECRET` | | Shared secret the reminder scheduler sends: `openssl rand -hex 32` |
 
 > Without `OPENROUTER_API_KEY`, bookmarks are still saved and their text
 > extracted, but summarization fails with a clear "not configured" message.
@@ -226,6 +234,7 @@ database. Deploys are driven entirely by GitHub Actions:
 | Workflow | When | What it does |
 |---|---|---|
 | [`ci.yml`](.github/workflows/ci.yml) | Every PR and push to `main` | Lint + build, report the result on Telegram |
+| [`reminders.yml`](.github/workflows/reminders.yml) | Every 5 minutes | Calls `/api/cron/reminders` to push due and snoozed todo reminders (needs the `CRON_SECRET` secret) |
 | [`deploy.yml`](.github/workflows/deploy.yml) | A push to `main` that bumps the **major or minor** version (patch bumps never deploy), or a manual run | Lint, build, `prisma migrate deploy`, `vercel deploy --prod`, smoke test, tag `vX.Y.Z` with a GitHub Release, post release notes on Telegram |
 
 Production notes:
@@ -245,6 +254,7 @@ Production notes:
 | `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens), scoped to the project's team |
 | `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | `orgId` and `projectId` from `.vercel/project.json` after `npx vercel link` |
 | `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) (`/newbot`) |
+| `CRON_SECRET` | Same value as the Vercel env var; enables `reminders.yml` |
 | `TELEGRAM_CHAT_ID` | Message the bot, then read `message.chat.id` from `https://api.telegram.org/bot<token>/getUpdates` |
 
 Notifications come from
