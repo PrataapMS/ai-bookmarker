@@ -2,16 +2,23 @@
 
 # 🔖 BookmarkAI
 
-**Paste a link, get an AI-powered reading list.**
+### Save a link. Get the gist. Do something about it.
 
-BookmarkAI fetches any article you save, extracts the readable text, and uses
-Claude to generate a summary, key takeaways, and action items — then lets you
-promote those action items into a todo list and share your best finds to a
-public feed.
+BookmarkAI turns every article you save into a **summary**, **key takeaways**
+and **action items**, then lets you promote those actions straight into a todo
+list. Your reading list stops being a graveyard.
 
-[**Live demo → ai-bookmarker.vercel.app**](https://ai-bookmarker.vercel.app)
+[**🌐 Live app**](https://ai-bookmarker.vercel.app) ·
+[**✨ Features**](#-features) ·
+[**🚀 Self-host**](#-getting-started) ·
+[**🔍 How it works**](#-how-it-works)
 
 <br />
+
+[![CI](https://github.com/PrataapMS/ai-bookmarker/actions/workflows/ci.yml/badge.svg)](https://github.com/PrataapMS/ai-bookmarker/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/PrataapMS/ai-bookmarker?label=release&color=6366f1)](https://github.com/PrataapMS/ai-bookmarker/releases)
+[![Deployed on Vercel](https://img.shields.io/badge/Vercel-live-000000?logo=vercel&logoColor=white)](https://ai-bookmarker.vercel.app)
+[![Last commit](https://img.shields.io/github/last-commit/PrataapMS/ai-bookmarker?color=a855f7)](https://github.com/PrataapMS/ai-bookmarker/commits/main)
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -20,130 +27,147 @@ public feed.
 [![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Claude](https://img.shields.io/badge/Claude-via%20OpenRouter-D97757?logo=anthropic&logoColor=white)](https://openrouter.ai/)
-[![Deployed on Vercel](https://img.shields.io/badge/Vercel-deployed-000000?logo=vercel&logoColor=white)](https://ai-bookmarker.vercel.app)
+[![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](#-sharing-from-your-phone)
+
+<br />
+
+<a href="https://ai-bookmarker.vercel.app">
+  <img src="docs/assets/landing.png" alt="BookmarkAI landing page: save a link, get the gist, do something about it" width="900" />
+</a>
 
 </div>
 
 ---
 
+## 📚 Contents
+
+- [Features](#-features)
+- [How it works](#-how-it-works)
+- [Tech stack](#-tech-stack)
+- [Getting started](#-getting-started)
+- [Sharing from your phone](#-sharing-from-your-phone)
+- [Project layout](#-project-layout)
+- [Deployment and CI/CD](#%EF%B8%8F-deployment-and-cicd)
+- [Security](#-security)
+- [License](#-license)
+
+> **Note:** signups on the hosted app are invite-only to keep AI costs in
+> check. Self-hosting takes a few minutes and is fully open; see
+> [Getting started](#-getting-started).
+
 ## ✨ Features
 
-- **🤖 AI summaries** — every saved link is fetched, cleaned, and summarized by
-  Claude into a short summary, **key takeaways**, and **action items**.
-- **✅ Action items → todos** — promote any AI-suggested action item into a
-  built-in todo list and check it off later.
-- **🏷️ Auto-tagging & filtering** — Claude assigns topic tags so you can filter
-  your reading list by subject.
-- **🌍 Public feed** — mark bookmarks public to share them in a community feed,
-  with **upvotes/downvotes** to surface the best reads.
-- **📲 Android share sheet** — install BookmarkAI to your home screen and it
-  shows up wherever you tap *Share*. The link is saved and summarized on the
-  spot, no copy-paste. See [Sharing from your phone](#-sharing-from-your-phone).
-- **⚡ Background processing** — bookmarks are saved instantly and processed
-  asynchronously; the detail page polls until the summary is ready.
-- **🔐 Self-contained auth** — email + password login with bcrypt hashing and a
-  `jose`-signed session cookie. No third-party auth provider.
+### Read less, get more
+
+- **🤖 AI summaries.** Every saved link is fetched, cleaned up and summarized
+  by Claude into a short summary, **key takeaways** and **action items**.
+- **⏱️ Reading time and read-later queue.** See how long a piece takes and
+  mark it read with a small celebration when you're done.
+- **🏷️ Auto-tagging.** Claude tags each article by topic; filter your list with
+  a searchable tag dropdown.
+- **🔁 Smart dedupe.** Saving the same URL twice (even with tracking params)
+  reopens the existing bookmark and reuses its summary.
+
+### Turn reading into doing
+
+- **✅ Action items to todos.** Promote any suggested action into a built-in
+  todo list, check it off, or copy your todos out.
+- **⭐ Stars, streaks and surprises.** Star favourites, keep a reading streak
+  going, let *Surprise me* pick something from your backlog, and discover
+  related reads.
+
+### Share the good stuff
+
+- **🌍 Public feed.** Mark a bookmark public to share it with the community;
+  upvotes and downvotes surface the best reads. Feed readers can pull action
+  items into their own todos.
+
+### Feels like an app
+
+- **📲 Installable PWA with Android share target.** Tap *Share* in any app and
+  pick BookmarkAI; the link is saved and summarized on the spot.
+- **📱 Mobile-first navigation.** Bottom tab bar, swipe between sections,
+  native-feeling back navigation and view transitions.
+- **♾️ Infinite scroll** with a compact/comfortable density toggle.
+- **🌗 Light, dusk and dark themes.**
+- **⚡ Instant saves.** Bookmarks are stored immediately and processed in the
+  background; the page updates itself when the summary is ready.
+
+## 🔍 How it works
+
+```mermaid
+flowchart LR
+    A[🔗 Paste or share a link] --> B[(Bookmark saved<br/>status: pending)]
+    B --> C[Fetch page<br/>SSRF guard, size and time caps]
+    C --> D[Extract article<br/>Readability + jsdom]
+    D --> E[Summarize with Claude<br/>structured tool output]
+    E --> F[(status: ready<br/>summary, takeaways,<br/>action items, tags)]
+    F --> G[✅ Promote to todos]
+    F --> H[🌍 Share to public feed]
+```
+
+1. **Add a link.** A `Bookmark` row is created with `status: "pending"` and
+   processing starts in the background via `after()`.
+2. **Process it** ([`lib/process-bookmark.ts`](lib/process-bookmark.ts)): fetch
+   the URL, extract the article ([`lib/extract.ts`](lib/extract.ts)),
+   summarize with Claude ([`lib/summarize.ts`](lib/summarize.ts), forced
+   structured output, retried with backoff), then save the result and set
+   `status: "ready"` (or `"failed"` with a reason).
+3. **Watch it land.** The detail page polls while pending and renders the
+   result when it's ready.
+4. **Act on it.** Promote action items to your todos, star it, or share it to
+   the public feed.
 
 ## 🧱 Tech stack
 
 | Layer | Choice |
 |---|---|
-| **Framework** | Next.js 16 (App Router, server actions — no API routes) + React 19 |
+| **Framework** | Next.js 16 (App Router, server actions, no API routes) + React 19 |
 | **Language** | TypeScript |
 | **Styling** | Tailwind CSS v4 |
 | **Database** | PostgreSQL via Prisma 6 |
-| **Auth** | `bcryptjs` password hashing + `jose`-signed JWT session cookie |
-| **Extraction** | `@mozilla/readability` + `jsdom` (with an SSRF guard + size/time caps) |
+| **Auth** | `bcryptjs` password hashing + `jose`-signed JWT session cookie (no third-party provider) |
+| **Extraction** | `@mozilla/readability` + `jsdom` |
 | **AI** | Claude via [OpenRouter](https://openrouter.ai/), using the OpenAI SDK with structured tool-calling |
-| **Hosting** | Vercel |
+| **Hosting** | Vercel (functions in `sin1`), deployed from GitHub Actions |
 
 ## 🚀 Getting started
+
+### Prerequisites
+
+- Node.js 20+ (CI uses 24) and npm
+- A PostgreSQL database (local, [Neon](https://neon.tech/),
+  [Prisma Postgres](https://www.prisma.io/postgres), Supabase, ...)
+- An [OpenRouter API key](https://openrouter.ai/keys) for summaries
+
+### Run it locally
 
 ```bash
 git clone https://github.com/PrataapMS/ai-bookmarker.git
 cd ai-bookmarker
 npm install
-cp .env.example .env        # then edit .env (see below)
-npx prisma migrate deploy   # applies migrations to your own Postgres database
+cp .env.example .env        # then fill in .env (see below)
+npx prisma migrate deploy   # creates the tables in your database
 npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000), create an account, and
+Open [http://localhost:3000](http://localhost:3000), create an account and
 paste a link.
 
 ### Environment variables
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string (`postgres://…`) |
-| `SESSION_SECRET` | Long random string for signing sessions — `openssl rand -base64 32` |
-| `OPENROUTER_API_KEY` | Key from [openrouter.ai/keys](https://openrouter.ai/keys) — **required for summaries** |
-| `OPENROUTER_MODEL` | e.g. `anthropic/claude-sonnet-5` (quality) or `anthropic/claude-haiku-4.5` (cheaper/faster) |
-| `SIGNUP_CODE` | *(optional)* invite code that gates signups when set |
+| Variable | Required | Purpose |
+|---|:---:|---|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string (`postgres://...`) |
+| `SESSION_SECRET` | ✅ | Long random string for signing sessions: `openssl rand -base64 32` |
+| `OPENROUTER_API_KEY` | ✅ | Key from [openrouter.ai/keys](https://openrouter.ai/keys), needed for summaries |
+| `OPENROUTER_MODEL` | | e.g. `anthropic/claude-sonnet-5` (quality) or `anthropic/claude-haiku-4.5` (cheaper, faster) |
+| `SIGNUP_CODE` | | Invite code that gates signups when set; leave unset for open signup |
 
 > Without `OPENROUTER_API_KEY`, bookmarks are still saved and their text
 > extracted, but summarization fails with a clear "not configured" message.
 
-## 🔍 How it works
-
-1. **Add a link** → a `Bookmark` row is created with `status: "pending"` and
-   processing kicks off in the background.
-2. **Processing** ([`lib/process-bookmark.ts`](lib/process-bookmark.ts)):
-   fetch the URL → extract the article
-   ([`lib/extract.ts`](lib/extract.ts), with an SSRF guard + size/time caps) →
-   summarize with Claude ([`lib/summarize.ts`](lib/summarize.ts), forced
-   structured output) → save the summary, takeaways, action items, and tags;
-   set `status: "ready"` (or `"failed"` + reason).
-3. The detail page **polls** while pending and renders the result when ready.
-4. **Promote** any action item into your todo list, and optionally **share** the
-   bookmark to the public feed where others can vote on it.
-
-## 📲 Sharing from your phone
-
-BookmarkAI is a PWA with a [Web Share Target](https://developer.mozilla.org/docs/Web/Manifest/share_target),
-so the browser share sheet can hand links straight to it.
-
-**Android (Chrome, Edge, Samsung Internet)**
-
-1. Open the site and choose **Install app** / **Add to Home screen** from the
-   browser menu.
-2. On any page, tap **Share** → **BookmarkAI**.
-3. The app opens on the new bookmark and the summary fills in as it's generated.
-
-Re-sharing a link you already saved just reopens that bookmark — it never
-duplicates the entry or pays for a second summary.
-
-**iOS** — Safari doesn't implement `share_target`, so BookmarkAI can't appear in
-the iOS share sheet on its own. A Shortcut that opens
-`/share?url=[Shortcut Input]` achieves the same thing; not set up here yet.
-
-## 📁 Project layout
-
-```text
-app/
-  page.tsx               # public landing page
-  login/                 # auth page (server wrapper + client form)
-  actions/               # server actions: auth, bookmarks, todos
-  manifest.ts            # PWA manifest + Android share_target
-  share/                 # share-sheet target: save the link, open the bookmark
-  icon.tsx  icons/       # app icons, generated as PNGs via next/og
-  (app)/                 # protected route group (requires a session)
-    bookmarks/           # list + add form
-    bookmarks/[id]/      # detail: summary, takeaways, action items
-    feed/                # public community feed with voting
-    todos/               # todo list
-    _components/          # client components (forms, poller, badges, sidebar)
-lib/
-  prisma.ts  auth.ts  extract.ts  summarize.ts  process-bookmark.ts
-  save-bookmark.ts       # shared by the add form and the share target
-  normalize-url.ts  share-url.ts  next-path.ts  tags.ts  format.ts
-public/
-  sw.js                  # no-op service worker (installability only)
-prisma/
-  schema.prisma          # User, Bookmark, Vote, Takeaway, ActionItem, Todo
-```
-
-## 📜 Available scripts
+### Scripts
 
 | Command | Description |
 |---|---|
@@ -152,32 +176,68 @@ prisma/
 | `npm start` | Run the production build |
 | `npm run lint` | Lint with ESLint |
 
-## ☁️ Deployment
+## 📲 Sharing from your phone
 
-The app is deployed to **Vercel** with serverless functions pinned to the
-`sin1` region to sit next to the database. A few production notes:
+BookmarkAI is a PWA with a
+[Web Share Target](https://developer.mozilla.org/docs/Web/Manifest/share_target),
+so your phone's share sheet can hand links straight to it.
 
-- **Background work** in server actions uses `after()` from `next/server` so it
+**Android (Chrome, Edge, Samsung Internet)**
+
+1. Open the site and choose **Install app** / **Add to Home screen**.
+2. In any app, tap **Share** → **BookmarkAI**.
+3. The app opens on the new bookmark and the summary fills in as it's
+   generated.
+
+Re-sharing a link you already saved just reopens that bookmark; it never
+duplicates the entry or pays for a second summary.
+
+**iOS:** Safari doesn't support `share_target`. A Shortcut that opens
+`/share?url=[Shortcut Input]` does the same job.
+
+## 📁 Project layout
+
+```text
+app/
+  page.tsx               # public landing page
+  login/                 # sign in / sign up
+  actions/               # server actions: auth, bookmarks, todos, lists
+  manifest.ts            # PWA manifest + Android share_target
+  share/                 # share-sheet target: save the link, open the bookmark
+  icon.tsx  icons/       # app icons, generated via next/og
+  (app)/                 # signed-in area
+    bookmarks/           # list, add form, detail (summary, takeaways, actions)
+    starred/             # starred bookmarks
+    feed/                # public community feed with voting
+    todos/               # todo list
+    _components/         # client components (cards, forms, nav, toggles)
+lib/                     # auth, extraction, summarization, processing, lists
+prisma/
+  schema.prisma          # User, Bookmark, Vote, Star, Takeaway, ActionItem, Todo
+  migrations/            # applied by the deploy workflow
+public/sw.js             # minimal service worker (installability)
+```
+
+## ☁️ Deployment and CI/CD
+
+The app runs on **Vercel** with functions pinned to `sin1`, next to the
+database. Deploys are driven entirely by GitHub Actions:
+
+| Workflow | When | What it does |
+|---|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | Every PR and push to `main` | Lint + build, report the result on Telegram |
+| [`deploy.yml`](.github/workflows/deploy.yml) | A push to `main` that bumps the **major or minor** version (patch bumps never deploy), or a manual run | Lint, build, `prisma migrate deploy`, `vercel deploy --prod`, smoke test, tag `vX.Y.Z` with a GitHub Release, post release notes on Telegram |
+
+Production notes:
+
+- Background work in server actions uses `after()` from `next/server` so it
   survives the serverless response lifecycle.
 - Pages that trigger fetch + summarize export `maxDuration = 300`.
-- The Vercel build only runs `prisma generate`; migrations are applied by
-  GitHub Actions just before each deploy.
+- Migrations are additive, so the running version keeps working until the new
+  deploy lands.
 
-### CI/CD (GitHub Actions)
-
-- **`ci.yml`** lints and builds every pull request and push to `main`, and
-  reports each build (pass or fail, with the commits) on Telegram.
-- **`deploy.yml`** runs when a push to `main` raises the **major or minor**
-  version in `package.json` (e.g. 1.2.x → 1.3.0; patch bumps never deploy), or by
-  hand from the Actions tab. It lints and builds, applies pending migrations
-  (`prisma migrate deploy`), deploys to Vercel production, smoke-tests the live
-  site, tags `vX.Y.Z` with a GitHub Release, and posts what's new since the
-  last release (app changes, migrations) on Telegram, or the stage that failed.
-
-Both notifications come from [`scripts/notify-telegram.mjs`](scripts/notify-telegram.mjs);
-a notification problem never fails CI or a deploy.
-
-Repository secrets it needs:
+<details>
+<summary><b>Repository secrets for your own fork</b></summary>
 
 | Secret | Value |
 |---|---|
@@ -187,6 +247,26 @@ Repository secrets it needs:
 | `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) (`/newbot`) |
 | `TELEGRAM_CHAT_ID` | Message the bot, then read `message.chat.id` from `https://api.telegram.org/bot<token>/getUpdates` |
 
+Notifications come from
+[`scripts/notify-telegram.mjs`](scripts/notify-telegram.mjs); a notification
+problem never fails CI or a deploy.
+
+</details>
+
+## 🔐 Security
+
+- Passwords are hashed with bcrypt; sessions are signed, HTTP-only cookies.
+- Link fetching is guarded against SSRF (private and internal addresses are
+  refused) and capped by size and time.
+- Found a vulnerability? Please report it privately; see
+  [SECURITY.md](SECURITY.md).
+
 ## 📄 License
 
-Personal project — no license granted for reuse.
+Personal project. The source is public for reference; no license is granted
+for reuse or redistribution.
+
+<div align="center">
+<br />
+<sub>Built with Next.js and Claude · <a href="https://ai-bookmarker.vercel.app">ai-bookmarker.vercel.app</a></sub>
+</div>
