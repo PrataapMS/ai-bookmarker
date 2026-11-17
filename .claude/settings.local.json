@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(npm --version)",
-      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --use-npm --eslint --no-turbopack --yes)"
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --use-npm --eslint --no-turbopack --yes)",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(PORT=3457 npm run dev)",
+      "Bash(node --env-file=.env --input-type=module -e ' *)",
+      "Bash(sed -i '' 's|from \"next/og\"|from \"next/og.js\"|' .icon-probe.mjs)",
+      "Bash(node .icon-probe.mjs)"
     ]
   }
 }
