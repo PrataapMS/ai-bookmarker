@@ -1,0 +1,67 @@
+name: CI
+
+# PRs and pushes to main are linted and built. On main, a version bump in package.json
+# (a "Release x.y.z" commit) deploys to production through deploy.yml. Docs-only changes skip CI.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', '.claude/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', '.claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Newer pushes cancel older runs on feature branches; main always runs to completion.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  # Deploys only when package.json's version changed in this push.
+  release-check:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - id: check
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          version() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).version)}catch{console.log("")}})'; }
+          new=$(version < package.json)
+          old=$(git show "$BEFORE:package.json" 2>/dev/null | version || true)
+          echo "version: ${old:-none} -> $new"
+          if [ -n "$new" ] && [ "$new" != "$old" ]; then deploy=true; else deploy=false; fi
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+
+  # deploy.yml lints and builds again itself, so a broken release is still reported on Telegram.
+  deploy:
+    needs: release-check
+    if: needs.release-check.outputs.deploy == 'true'
+    permissions:
+      contents: write # release tag
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

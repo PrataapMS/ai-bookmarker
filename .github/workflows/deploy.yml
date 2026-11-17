@@ -1,0 +1,134 @@
+name: Deploy to Vercel
+
+# Called by CI when a version bump lands on main, or run by hand from the Actions tab.
+# Lint + build, apply pending Prisma migrations, deploy to Vercel production, smoke-test,
+# tag a GitHub Release, and report the outcome on Telegram.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # release tag
+    environment:
+      name: production
+      url: https://ai-bookmarker.vercel.app
+    # One deploy at a time; a newer one waits instead of racing an older one.
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    env:
+      SITE_URL: https://ai-bookmarker.vercel.app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Check secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          missing=""
+          for name in DATABASE_URL VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - id: verify
+        name: Lint and build
+        run: |
+          npm run lint
+          npm run build
+
+      # Applies only migrations not yet in _prisma_migrations; never resets or drops data.
+      # Runs before the deploy, so the old code must tolerate the new schema for a minute.
+      - id: migrate
+        name: Apply database migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -o pipefail
+          status=0
+          npx prisma migrate deploy 2>&1 | tee "$RUNNER_TEMP/migrate.log" || status=$?
+          # Recorded even on failure, so the notification can say what was attempted.
+          applied=$(grep -oE 'Applying migration `[^`]+`' "$RUNNER_TEMP/migrate.log" | sed -E 's/.*`(.+)`/\1/' | paste -sd, - || true)
+          echo "applied=$applied" >> "$GITHUB_OUTPUT"
+          exit $status
+
+      # Vercel builds from source (as before), so the Prisma engine matches its runtime.
+      - id: vercel
+        name: Deploy to Vercel production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          url=$(npx --yes vercel@65.9.0 deploy --prod --yes --token "$VERCEL_TOKEN" \
+            --meta githubCommitSha="$GITHUB_SHA" --meta githubRef="$GITHUB_REF_NAME")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Deployed: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - id: smoke
+        name: Smoke test
+        run: |
+          check() {
+            got=$(curl -sS --retry 5 --retry-delay 10 --retry-all-errors -o /dev/null -w "%{http_code}" "$SITE_URL$1" || true)
+            if [ "$got" != "$2" ]; then
+              echo "::error::$SITE_URL$1 returned $got, expected $2"
+              return 1
+            fi
+            echo "$SITE_URL$1 -> $got"
+          }
+          check /login 200
+          check / 200
+          check /bookmarks 307
+
+      # Tags the deployed commit vX.Y.Z and publishes a GitHub Release with generated notes.
+      - id: release
+        name: Tag release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(node -p 'require("./package.json").version')"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists"; exit 0
+          fi
+          gh release create "$tag" --target "$GITHUB_SHA" --title "BookmarkAI $tag" --generate-notes
+          echo "### Released $tag" >> "$GITHUB_STEP_SUMMARY"
+
+      # Reports the deploy (live or failed) on Telegram. A notification problem never fails the deploy.
+      - name: Notify Telegram
+        if: always()
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          JOB_STATUS: ${{ job.status }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          MIGRATE_OUTCOME: ${{ steps.migrate.outcome }}
+          VERCEL_OUTCOME: ${{ steps.vercel.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          RELEASE_OUTCOME: ${{ steps.release.outcome }}
+          MIGRATIONS: ${{ steps.migrate.outputs.applied }}
+          DEPLOYMENT_URL: ${{ steps.vercel.outputs.url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/notify-telegram.mjs
