@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { safeNextPath } from "@/lib/next-path";
 import {
   hashPassword,
   verifyPassword,
@@ -16,6 +17,11 @@ const credsSchema = z.object({
 });
 
 export type AuthState = { error?: string } | undefined;
+
+/** Where to land after signing in — a pending share, or the bookmark list. */
+function destination(formData: FormData): string {
+  return safeNextPath(String(formData.get("next") ?? "")) ?? "/bookmarks";
+}
 
 export async function login(
   _prev: AuthState,
@@ -37,7 +43,7 @@ export async function login(
   }
 
   await createSession(user.id);
-  redirect("/bookmarks");
+  redirect(destination(formData));
 }
 
 export async function signup(
@@ -77,7 +83,7 @@ export async function signup(
   });
 
   await createSession(user.id);
-  redirect("/bookmarks");
+  redirect(destination(formData));
 }
 
 export async function logout(): Promise<void> {

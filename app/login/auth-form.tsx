@@ -6,9 +6,12 @@ import { login, signup, type AuthState } from "@/app/actions/auth";
 export function AuthForm({
   inviteRequired,
   initialMode = "login",
+  next,
 }: {
   inviteRequired: boolean;
   initialMode?: "login" | "signup";
+  /** Path to land on after signing in, instead of /bookmarks. */
+  next?: string | null;
 }) {
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [loginState, loginAction, loginPending] = useActionState<
@@ -47,6 +50,7 @@ export function AuthForm({
       </div>
 
       <form action={formAction} className="space-y-4">
+        {next && <input type="hidden" name="next" value={next} />}
         <div>
           <label htmlFor="email" className="mb-1 block text-sm font-medium">
             Email

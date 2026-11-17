@@ -36,6 +36,9 @@ public feed.
   your reading list by subject.
 - **🌍 Public feed** — mark bookmarks public to share them in a community feed,
   with **upvotes/downvotes** to surface the best reads.
+- **📲 Android share sheet** — install BookmarkAI to your home screen and it
+  shows up wherever you tap *Share*. The link is saved and summarized on the
+  spot, no copy-paste. See [Sharing from your phone](#-sharing-from-your-phone).
 - **⚡ Background processing** — bookmarks are saved instantly and processed
   asynchronously; the detail page polls until the summary is ready.
 - **🔐 Self-contained auth** — email + password login with bcrypt hashing and a
@@ -95,6 +98,25 @@ paste a link.
 4. **Promote** any action item into your todo list, and optionally **share** the
    bookmark to the public feed where others can vote on it.
 
+## 📲 Sharing from your phone
+
+BookmarkAI is a PWA with a [Web Share Target](https://developer.mozilla.org/docs/Web/Manifest/share_target),
+so the browser share sheet can hand links straight to it.
+
+**Android (Chrome, Edge, Samsung Internet)**
+
+1. Open the site and choose **Install app** / **Add to Home screen** from the
+   browser menu.
+2. On any page, tap **Share** → **BookmarkAI**.
+3. The app opens on the new bookmark and the summary fills in as it's generated.
+
+Re-sharing a link you already saved just reopens that bookmark — it never
+duplicates the entry or pays for a second summary.
+
+**iOS** — Safari doesn't implement `share_target`, so BookmarkAI can't appear in
+the iOS share sheet on its own. A Shortcut that opens
+`/share?url=[Shortcut Input]` achieves the same thing; not set up here yet.
+
 ## 📁 Project layout
 
 ```text
@@ -102,6 +124,9 @@ app/
   page.tsx               # public landing page
   login/                 # auth page (server wrapper + client form)
   actions/               # server actions: auth, bookmarks, todos
+  manifest.ts            # PWA manifest + Android share_target
+  share/                 # share-sheet target: save the link, open the bookmark
+  icon.tsx  icons/       # app icons, generated as PNGs via next/og
   (app)/                 # protected route group (requires a session)
     bookmarks/           # list + add form
     bookmarks/[id]/      # detail: summary, takeaways, action items
@@ -110,7 +135,10 @@ app/
     _components/          # client components (forms, poller, badges, sidebar)
 lib/
   prisma.ts  auth.ts  extract.ts  summarize.ts  process-bookmark.ts
-  normalize-url.ts  tags.ts  format.ts
+  save-bookmark.ts       # shared by the add form and the share target
+  normalize-url.ts  share-url.ts  next-path.ts  tags.ts  format.ts
+public/
+  sw.js                  # no-op service worker (installability only)
 prisma/
   schema.prisma          # User, Bookmark, Vote, Takeaway, ActionItem, Todo
 ```
