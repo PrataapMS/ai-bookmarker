@@ -188,3 +188,103 @@ body {
     animation: none !important;
   }
 }
+
+/* ---------- Landing page ---------- */
+
+/* Slow-drifting blobs behind the hero. */
+@keyframes blob-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(6%, -8%) scale(1.08);
+  }
+  66% {
+    transform: translate(-5%, 6%) scale(0.94);
+  }
+}
+
+/* A hue rotation that keeps the gradient text and blobs feeling alive. */
+@keyframes hue-cycle {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* Gentle bob for the floating emoji/badges. */
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--bob-rot, 0deg));
+  }
+  50% {
+    transform: translateY(-8px) rotate(var(--bob-rot, 0deg));
+  }
+}
+
+/* Entrance: rise + fade, staggered via inline animation-delay. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* A sweeping shimmer for the "processing" example bar. */
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Animated conic border for the demo card. */
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.blob {
+  animation: blob-drift 18s ease-in-out infinite;
+}
+.hue-cycle {
+  animation: hue-cycle 16s linear infinite;
+}
+.bob {
+  animation: bob 5s ease-in-out infinite;
+}
+.rise-in {
+  opacity: 0;
+  animation: rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.sweep {
+  animation: sweep 2.4s ease-in-out infinite;
+}
+.spin-slow {
+  animation: spin-slow 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob,
+  .hue-cycle,
+  .bob,
+  .rise-in,
+  .sweep,
+  .spin-slow {
+    animation: none !important;
+  }
+  .rise-in {
+    opacity: 1;
+  }
+}

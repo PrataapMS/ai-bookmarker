@@ -2,13 +2,16 @@ import { ViewTransition } from "react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatDate, readingTime } from "@/lib/format";
+import { formatDate, readingMinutes, readingTime } from "@/lib/format";
 import { AddBookmarkForm } from "../_components/add-bookmark-form";
 import { StatusBadge } from "../_components/status-badge";
 import { StatusPoller } from "../_components/status-poller";
 import { TagFilterDropdown } from "../_components/tag-filter-dropdown";
 import { ReadToggle } from "../_components/read-toggle";
 import { PageTransition } from "../_components/page-transition";
+import { StarButton } from "../_components/star-button";
+import { ReadingStats, type ReadEntry } from "../_components/reading-stats";
+import { surpriseMe } from "@/app/actions/stars";
 
 export const dynamic = "force-dynamic";
 // Fetch + extract + summarize can take a while; allow the action (and its
@@ -45,6 +48,7 @@ export default async function BookmarksPage({
     include: {
       _count: { select: { takeaways: true, actionItems: true } },
       votes: { select: { value: true } },
+      stars: { where: { userId: user.id }, select: { id: true } },
     },
   });
 
@@ -73,6 +77,14 @@ export default async function BookmarksPage({
 
   const anyPending = bookmarks.some((b) => b.status === "pending");
 
+  const reads: ReadEntry[] = bookmarks
+    .filter((b) => b.readAt)
+    .map((b) => ({
+      readAt: b.readAt!.toISOString(),
+      minutes: readingMinutes(b.wordCount),
+    }));
+  const surprise = surpriseMe.bind(null, "queue" as const);
+
   const viewTab = (value: View, label: string, count?: number) => (
     <Link
       href={viewHref(value, activeTag)}
@@ -98,14 +110,14 @@ export default async function BookmarksPage({
 
   const emptyCopy: Record<View, { title: string; hint: string }> = {
     "to-read": {
-      title: activeTag ? `Nothing tagged #${activeTag} to read` : "Your reading queue is empty",
+      title: activeTag ? `Nothing tagged #${activeTag} to read` : "Queue cleared. Main character energy ✨",
       hint: activeTag
         ? "Try another tag, or view all bookmarks."
-        : "Paste a link above, or check what you've already read.",
+        : "Paste a link above, or hit 🎲 Surprise me to find something in the feed.",
     },
     read: {
       title: activeTag ? `Nothing tagged #${activeTag} read yet` : "Nothing read yet",
-      hint: "Mark a bookmark as read and it'll move here.",
+      hint: "Mark a bookmark as read and it'll land here (and start your 🔥 streak).",
     },
     all: {
       title: activeTag ? `No bookmarks tagged #${activeTag}` : "No bookmarks yet",
@@ -123,10 +135,12 @@ export default async function BookmarksPage({
         <section>
           <h1 className="mb-1 text-xl font-semibold tracking-tight">Bookmarks</h1>
           <p className="mb-4 text-sm text-muted">
-            Save any article or blog post and get an instant summary.
+            Drop a link, get the TL;DR. Your future self says thanks. 🫶
           </p>
           <AddBookmarkForm />
         </section>
+
+        <ReadingStats reads={reads} />
 
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -135,7 +149,19 @@ export default async function BookmarksPage({
               {viewTab("read", "✓ Read", readCount)}
               {viewTab("all", "All")}
             </div>
-            <TagFilterDropdown tags={allTags} activeTag={activeTag} />
+            <div className="flex items-center gap-2">
+              <form action={surprise}>
+                <button
+                  type="submit"
+                  title="Open a random unread pick"
+                  className="dice-btn flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition hover:border-accent/50 hover:text-foreground"
+                >
+                  <span className="dice" aria-hidden>🎲</span>
+                  Surprise me
+                </button>
+              </form>
+              <TagFilterDropdown tags={allTags} activeTag={activeTag} />
+            </div>
           </div>
 
           {/* Crossfade the list when the view or tag filter changes (same route). */}
@@ -153,16 +179,17 @@ export default async function BookmarksPage({
                   <p className="mt-1 text-sm text-muted">{emptyCopy[view].hint}</p>
                 </div>
               ) : (
-                visible.map((b) => {
+                visible.map((b, i) => {
                   const score = b.votes.reduce((sum, v) => sum + v.value, 0);
                   const minutes = readingTime(b.wordCount);
                   const isRead = Boolean(b.readAt);
                   return (
                     <article
                       key={b.id}
-                      className={`group relative rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50 hover:shadow-sm ${
+                      className={`card-in group relative rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50 hover:shadow-sm ${
                         isRead ? "opacity-70 hover:opacity-100" : ""
                       }`}
+                      style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
                     >
                       <Link
                         href={`/bookmarks/${b.id}`}
@@ -182,7 +209,12 @@ export default async function BookmarksPage({
                             {b.siteName ?? new URL(b.url).hostname} · {formatDate(b.createdAt)}
                           </p>
                         </div>
-                        <StatusBadge status={b.status} />
+                        <span className="flex shrink-0 items-center gap-1">
+                          <StatusBadge status={b.status} />
+                          <span className="relative z-10">
+                            <StarButton bookmarkId={b.id} starred={b.stars.length > 0} />
+                          </span>
+                        </span>
                       </div>
 
                       {b.status === "ready" && b.summary && (

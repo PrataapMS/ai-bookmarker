@@ -1,16 +1,19 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { safeNextPath } from "@/lib/next-path";
 import { AuthForm } from "./auth-form";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; next?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (user) redirect("/bookmarks");
+  const { mode, next } = await searchParams;
+  // Set when the user got here mid-share, so sign-in resumes that share.
+  const nextPath = safeNextPath(next);
 
-  const { mode } = await searchParams;
+  const user = await getCurrentUser();
+  if (user) redirect(nextPath ?? "/bookmarks");
 
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">
@@ -27,6 +30,7 @@ export default async function LoginPage({
         <AuthForm
           inviteRequired={Boolean(process.env.SIGNUP_CODE)}
           initialMode={mode === "signup" ? "signup" : "login"}
+          next={nextPath}
         />
       </div>
     </main>

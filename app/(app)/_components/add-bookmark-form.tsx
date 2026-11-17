@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { addBookmark, type AddState } from "@/app/actions/bookmarks";
 
-export function AddBookmarkForm() {
+export function AddBookmarkForm({ defaultValue }: { defaultValue?: string }) {
   const [state, formAction, pending] = useActionState<AddState, FormData>(
     addBookmark,
     undefined,
@@ -16,6 +16,7 @@ export function AddBookmarkForm() {
           name="url"
           type="text"
           inputMode="url"
+          defaultValue={defaultValue}
           required
           placeholder="Paste a link to save and summarize…"
           className="flex-1 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/30"

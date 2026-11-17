@@ -3,19 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { processBookmark } from "@/lib/process-bookmark";
-import { normalizeUrl, urlMatchKeys } from "@/lib/normalize-url";
+import { bookmarkUrlSchema, saveBookmark } from "@/lib/save-bookmark";
 import { normalizeTag, normalizeTags } from "@/lib/tags";
-
-const urlSchema = z
-  .string()
-  .trim()
-  .min(1, "Paste a link first.")
-  .transform((v) => (/^https?:\/\//i.test(v) ? v : `https://${v}`))
-  .pipe(z.string().url("That doesn't look like a valid link."));
 
 export type AddState = { error?: string } | undefined;
 
@@ -25,78 +17,14 @@ export async function addBookmark(
 ): Promise<AddState> {
   const user = await requireUser();
 
-  const parsed = urlSchema.safeParse(formData.get("url"));
+  const parsed = bookmarkUrlSchema.safeParse(formData.get("url"));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid link." };
   }
 
-  const url = normalizeUrl(parsed.data);
-  const matchKeys = urlMatchKeys(parsed.data);
-
-  // Same user already saved this link → open their existing entry
-  // instead of creating a duplicate.
-  const existing = await prisma.bookmark.findFirst({
-    where: { userId: user.id, url: { in: matchKeys } },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-  if (existing) {
-    redirect(`/bookmarks/${existing.id}`);
-  }
-
-  // Another user already processed this link → copy their result so we
-  // don't fetch + summarize the same article again.
-  const source = await prisma.bookmark.findFirst({
-    where: { url: { in: matchKeys }, status: "ready" },
-    orderBy: { createdAt: "desc" },
-    include: {
-      takeaways: { orderBy: { order: "asc" } },
-      actionItems: { orderBy: { order: "asc" } },
-    },
-  });
-
-  if (source) {
-    const copy = await prisma.bookmark.create({
-      data: {
-        userId: user.id,
-        url,
-        status: "ready",
-        title: source.title,
-        siteName: source.siteName,
-        contentType: source.contentType,
-        summary: source.summary,
-        rawText: source.rawText,
-        wordCount: source.wordCount,
-        tags: source.tags,
-        takeaways: {
-          create: source.takeaways.map(({ text, order }) => ({ text, order })),
-        },
-        actionItems: {
-          create: source.actionItems.map(({ text, order }) => ({
-            text,
-            order,
-          })),
-        },
-      },
-    });
-    revalidatePath("/bookmarks");
-    redirect(`/bookmarks/${copy.id}`);
-  }
-
-  const bookmark = await prisma.bookmark.create({
-    data: {
-      userId: user.id,
-      url,
-      status: "pending",
-    },
-  });
-
-  // Process after the response is sent; on serverless this keeps the
-  // function alive (waitUntil) instead of dying with the request.
-  after(() => processBookmark(bookmark.id));
-
-  revalidatePath("/bookmarks");
-  redirect(`/bookmarks/${bookmark.id}`);
+  const { id, isNew } = await saveBookmark(user.id, parsed.data);
+  if (isNew) revalidatePath("/bookmarks");
+  redirect(`/bookmarks/${id}`);
 }
 
 export async function retryBookmark(bookmarkId: string): Promise<void> {

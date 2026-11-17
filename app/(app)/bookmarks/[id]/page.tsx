@@ -18,6 +18,8 @@ import { PageTransition } from "../../_components/page-transition";
 import { VoteButtons } from "../../_components/vote-buttons";
 import { ReadToggle } from "../../_components/read-toggle";
 import { AddActionItemTodoButton } from "../../_components/add-action-item-todo-button";
+import { StarButton } from "../../_components/star-button";
+import { MoreLikeThis } from "../../_components/more-like-this";
 
 export const dynamic = "force-dynamic";
 // Retry re-runs fetch + summarize via after(); allow the platform maximum.
@@ -41,7 +43,9 @@ export default async function BookmarkDetailPage({
       takeaways: { orderBy: { order: "asc" } },
       actionItems: { orderBy: { order: "asc" } },
       votes: { select: { userId: true, value: true } },
+      stars: { where: { userId: user.id }, select: { id: true } },
       user: { select: { email: true } },
+      _count: { select: { stars: true } },
     },
   });
   if (!bookmark) notFound();
@@ -50,11 +54,20 @@ export default async function BookmarkDetailPage({
   const score = bookmark.votes.reduce((sum, v) => sum + v.value, 0);
   const myVote = bookmark.votes.find((v) => v.userId === user.id)?.value ?? 0;
 
-  // Opened from the feed (even one of your own public bookmarks) → back
-  // should return to the feed, preserving whatever tag/sort was active.
+  // Opened from the feed or Starred (even one of your own bookmarks) → back
+  // returns there, preserving whatever tag/sort was active.
   const fromFeed = from?.startsWith("/feed") ?? false;
-  const backHref = fromFeed || !isOwner ? (fromFeed ? from! : "/feed") : "/bookmarks";
-  const backLabel = fromFeed || !isOwner ? "Back to feed" : "All bookmarks";
+  const fromStarred = from?.startsWith("/starred") ?? false;
+  const backHref = fromStarred
+    ? from!
+    : fromFeed || !isOwner
+      ? (fromFeed ? from! : "/feed")
+      : "/bookmarks";
+  const backLabel = fromStarred
+    ? "Back to starred"
+    : fromFeed || !isOwner
+      ? "Back to feed"
+      : "All bookmarks";
 
   const retry = retryBookmark.bind(null, bookmark.id);
   const remove = deleteBookmark.bind(null, bookmark.id);
@@ -121,6 +134,12 @@ export default async function BookmarkDetailPage({
 
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <VoteButtons bookmarkId={bookmark.id} score={score} myVote={myVote} />
+          <StarButton
+            bookmarkId={bookmark.id}
+            starred={bookmark.stars.length > 0}
+            count={bookmark.isPublic ? bookmark._count.stars : undefined}
+            variant="detail"
+          />
           {isOwner ? (
             <form action={toggleVisibility}>
               <button
@@ -299,6 +318,13 @@ export default async function BookmarkDetailPage({
               </ul>
             )}
           </section>
+
+          <MoreLikeThis
+            bookmarkId={bookmark.id}
+            tags={bookmark.tags}
+            userId={user.id}
+            from={fromFeed || fromStarred ? from : undefined}
+          />
         </>
       )}
 
