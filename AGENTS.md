@@ -14,7 +14,9 @@ takeaways, action items; action items promote into a todo list.
 - Next.js 16 App Router + TypeScript + Tailwind v4 (server actions; route
   handlers only where no browser session or server action is possible:
   `app/api/cron/reminders` (scheduler, `CRON_SECRET`) and `app/api/todos/[id]`
-  (notification buttons from the service worker))
+  (notification buttons from the service worker), `app/api/bookmarks/status`
+  (status polling; server actions and `router.refresh()` share the router's
+  one-at-a-time queue, so polling with them blocked taps))
 - Prisma 6 + Postgres (Prisma Postgres free tier, region `ap-southeast-1`)
 - Custom auth: bcryptjs + `jose` JWT session cookie (NOT NextAuth) — `lib/auth.ts`
 - Extraction: `@mozilla/readability` + `jsdom` — `lib/extract.ts`
@@ -91,6 +93,19 @@ takeaways, action items; action items promote into a todo list.
   adapters mandatory — do not upgrade casually.
 
 ## Hard-won gotchas (do not regress)
+
+- **Keep the UI responsive while the server is slow.** Every dynamic page a
+  user taps into needs a `loading.tsx` (Link prefetches up to it, so the tap
+  shows a skeleton instantly). Never poll with `router.refresh()` on an
+  interval or call server actions on page load/mount: they queue behind each
+  other and make taps wait. Poll `/api/bookmarks/status` with `fetch` instead.
+- **External calls need explicit timeouts** that fit inside `maxDuration`
+  (OpenAI SDK default is 10 minutes); otherwise a bookmark is stuck
+  `pending` forever.
+- **Service worker (`public/sw.js`) caches app pages for offline use.** Pages
+  are network-first; offline copies are per-person data, cleared on any
+  redirect and on sign-out (cache name `pages-v1`, shared with
+  `sidebar.tsx`). Bump `VERSION` when changing the static caching.
 
 - **Regenerate the lockfile with CI's npm after any dependency change.** Local
   npm (11.6) omits optional wasm deps that CI's npm (11.19, bundled with Node

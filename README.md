@@ -89,8 +89,12 @@ list. Your reading list stops being a graveyard.
 
 ### Feels like an app
 
-- **📲 Installable PWA with Android share target.** Tap *Share* in any app and
-  pick BookmarkAI; the link is saved and summarized on the spot.
+- **📲 Installs like an app** on Android, iPhone, iPad and desktop
+  ([guide](https://ai-bookmarker.vercel.app/install)). Tap *Share* in any app
+  and pick BookmarkAI (Android) or a one-minute Shortcut (iOS); the link is
+  saved and summarized on the spot.
+- **📡 Works offline.** Bookmarks and todos you've opened stay readable without
+  a connection.
 - **📱 Mobile-first navigation.** Bottom tab bar, swipe between sections,
   native-feeling back navigation and view transitions.
 - **♾️ Infinite scroll** with a compact/comfortable density toggle.
@@ -200,8 +204,10 @@ so your phone's share sheet can hand links straight to it.
 Re-sharing a link you already saved just reopens that bookmark; it never
 duplicates the entry or pays for a second summary.
 
-**iOS:** Safari doesn't support `share_target`. A Shortcut that opens
-`/share?url=[Shortcut Input]` does the same job.
+**iPhone and iPad:** Safari → Share → **Add to Home Screen** installs the app.
+iOS doesn't let web apps join the share sheet, so a small Shortcut that opens
+`/share?url=<encoded link>` does the same job; the in-app
+[install guide](https://ai-bookmarker.vercel.app/install) walks through it.
 
 ## 📁 Project layout
 
