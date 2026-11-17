@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { safeNextPath } from "@/lib/next-path";
@@ -17,6 +17,9 @@ const credsSchema = z.object({
 });
 
 export type AuthState = { error?: string } | undefined;
+
+// Signing in replaces the login screen in history, so back from the app
+// doesn't return to a form that would just bounce straight back in.
 
 /** Where to land after signing in — a pending share, or the bookmark list. */
 function destination(formData: FormData): string {
@@ -43,7 +46,7 @@ export async function login(
   }
 
   await createSession(user.id);
-  redirect(destination(formData));
+  redirect(destination(formData), RedirectType.replace);
 }
 
 export async function signup(
@@ -83,7 +86,7 @@ export async function signup(
   });
 
   await createSession(user.id);
-  redirect(destination(formData));
+  redirect(destination(formData), RedirectType.replace);
 }
 
 export async function logout(): Promise<void> {

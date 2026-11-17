@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/actions/auth";
+import { useTabLinkClick } from "./app-history";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
@@ -62,6 +63,7 @@ export function Sidebar({ email }: { email: string }) {
   const from = searchParams.get("from") ?? "";
   const fromSection = NAV_ITEMS.find((item) => from.startsWith(item.href))?.href;
   const activePath = fromSection ?? pathname;
+  const onTabClick = useTabLinkClick();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -102,7 +104,7 @@ export function Sidebar({ email }: { email: string }) {
         >
           <MenuIcon />
         </button>
-        <Link href="/bookmarks" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold">
+        <Link href="/bookmarks" onClick={(e) => onTabClick(e, "/bookmarks")} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold">
           <span className="text-lg" aria-hidden>
             🔖
           </span>
@@ -115,6 +117,7 @@ export function Sidebar({ email }: { email: string }) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={(e) => onTabClick(e, item.href)}
                 aria-label={item.label}
                 title={item.label}
                 aria-current={active ? "page" : undefined}
@@ -151,6 +154,7 @@ export function Sidebar({ email }: { email: string }) {
         >
           <Link
             href="/bookmarks"
+            onClick={(e) => onTabClick(e, "/bookmarks")}
             className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold hover:bg-background"
             title="BookmarkAI"
           >
@@ -189,6 +193,7 @@ export function Sidebar({ email }: { email: string }) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={(e) => onTabClick(e, item.href)}
                 title={item.label}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 transition ${
                   collapsed ? "md:justify-center md:px-0" : ""
