@@ -16,7 +16,7 @@ export const viewport: Viewport = {
   ],
 };
 
-// Runs before first paint to set the theme, avoiding a flash of the wrong
+// Runs before first paint to set the theme and list density, avoiding a flash of the wrong
 // theme (FOUC) and a hydration mismatch. Falls back to the OS preference when
 // the user has not chosen a theme yet.
 const themeInitScript = `(function () {
@@ -28,6 +28,15 @@ const themeInitScript = `(function () {
         : "light";
     }
     document.documentElement.dataset.theme = t;
+    if (localStorage.getItem("density") === "compact") {
+      document.documentElement.dataset.density = "compact";
+    }
+  } catch (e) {}
+  try {
+    // Lets the server group lists by the viewer's calendar day.
+    document.cookie =
+      "tz=" + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone) +
+      "; path=/; max-age=31536000; samesite=lax";
   } catch (e) {}
 })();`;
 

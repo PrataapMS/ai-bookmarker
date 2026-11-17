@@ -39,6 +39,8 @@ export default async function BookmarkDetailPage({
   // Owners see their own bookmarks; public ones are readable by anyone signed in.
   const bookmark = await prisma.bookmark.findFirst({
     where: { id, OR: [{ userId: user.id }, { isPublic: true }] },
+    // The extracted article text is only for re-processing; never ship it to a page.
+    omit: { rawText: true },
     include: {
       takeaways: { orderBy: { order: "asc" } },
       actionItems: { orderBy: { order: "asc" } },
