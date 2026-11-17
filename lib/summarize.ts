@@ -74,6 +74,9 @@ const TOOL = {
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_MODEL = "anthropic/claude-sonnet-5";
 const MAX_CHARS = 24_000; // keep token cost bounded
+// Per attempt. process-bookmark makes up to 5 attempts with ~15s of backoff,
+// so the worst case stays inside the 300s function limit.
+const SUMMARY_TIMEOUT_MS = 45_000;
 
 export function isConfigured(): boolean {
   return Boolean(process.env.OPENROUTER_API_KEY);
@@ -90,6 +93,11 @@ export async function summarize(article: Extracted): Promise<Summary> {
   const client = new OpenAI({
     apiKey,
     baseURL: OPENROUTER_BASE_URL,
+    // The SDK default is a 10-minute timeout plus its own retries; one hung
+    // call would outlive the function (maxDuration 300s) and leave the
+    // bookmark "pending" forever. process-bookmark retries instead.
+    timeout: SUMMARY_TIMEOUT_MS,
+    maxRetries: 0,
     // Optional attribution headers OpenRouter uses for its dashboards/rankings.
     defaultHeaders: {
       "HTTP-Referer": "http://localhost:3000",

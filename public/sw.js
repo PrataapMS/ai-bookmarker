@@ -1,18 +1,134 @@
-// Minimal service worker. It makes BookmarkAI installable (which registers
-// the Android share target, see app/manifest.ts) and shows todo reminders
-// sent by Web Push (lib/push.ts).
+// BookmarkAI service worker: installability (and so the Android share
+// target, see app/manifest.ts), offline support, and todo reminders sent by
+// Web Push (lib/push.ts).
 //
-// It deliberately never calls event.respondWith(), so every request goes to
-// the network untouched. An authenticated, always-dynamic app must not serve
-// cached pages: no offline shell, no stale summaries, no other user's data.
+// Offline strategy
+// - Build assets (/_next/static, icons) are immutable: cache-first.
+// - App pages (bookmarks, feed, starred, todos) are network-first. A good
+//   response is kept as an offline copy; the copy is only served when the
+//   network fails or is very slow, so you never see stale data while online.
+// - Anything else that fails offline gets /offline.html.
+// - Offline copies are per-person data: they're wiped whenever a page
+//   redirects (i.e. the session ended) and on sign-out (see sidebar.tsx).
+// - Data requests (RSC, server actions, /api) are never touched.
 
-self.addEventListener("install", () => self.skipWaiting());
+const VERSION = "v2";
+const STATIC_CACHE = `static-${VERSION}`;
+const PAGES_CACHE = "pages-v1"; // name shared with sidebar.tsx sign-out
+const OFFLINE_URL = "/offline.html";
+const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png"];
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+const PAGE_PATHS = /^\/(bookmarks|feed|starred|todos)(\/|$)/;
+const SLOW_NETWORK_MS = 8000;
+const MAX_PAGES = 60;
+const MAX_STATIC = 400;
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(STATIC_CACHE)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting()),
+  );
 });
 
-self.addEventListener("fetch", () => {});
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      const keep = new Set([STATIC_CACHE, PAGES_CACHE]);
+      for (const key of await caches.keys()) {
+        if (!keep.has(key)) await caches.delete(key);
+      }
+      await self.clients.claim();
+    })(),
+  );
+});
+
+async function trim(cacheName, max) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  for (const key of keys.slice(0, Math.max(0, keys.length - max))) {
+    await cache.delete(key);
+  }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(STATIC_CACHE);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const res = await fetch(request);
+  if (res.ok) {
+    await cache.put(request, res.clone());
+    trim(STATIC_CACHE, MAX_STATIC);
+  }
+  return res;
+}
+
+async function offlinePage() {
+  const cache = await caches.open(STATIC_CACHE);
+  return (await cache.match(OFFLINE_URL)) || new Response("You're offline.", { status: 503 });
+}
+
+async function cachedPage(request) {
+  const cache = await caches.open(PAGES_CACHE);
+  return (
+    (await cache.match(request, { ignoreVary: true })) ||
+    (await cache.match(request, { ignoreVary: true, ignoreSearch: true }))
+  );
+}
+
+async function networkFirstPage(event) {
+  const request = event.request;
+  const network = fetch(request).then(async (res) => {
+    if (res.type === "opaqueredirect" || res.redirected) {
+      // Redirected away (signed out): drop everyone's offline copies.
+      await caches.delete(PAGES_CACHE);
+    } else if (res.ok && (res.headers.get("content-type") || "").includes("text/html")) {
+      const cache = await caches.open(PAGES_CACHE);
+      await cache.put(request, res.clone());
+      trim(PAGES_CACHE, MAX_PAGES);
+    }
+    return res;
+  });
+  event.waitUntil(network.catch(() => {}));
+
+  let slowTimer;
+  const slow = new Promise((resolve) => {
+    slowTimer = setTimeout(() => resolve("slow"), SLOW_NETWORK_MS);
+  });
+  try {
+    const first = await Promise.race([network, slow]);
+    if (first !== "slow") return first;
+    // Very slow network: show the offline copy if there is one, else keep waiting.
+    return (await cachedPage(request)) || (await network);
+  } catch {
+    return (await cachedPage(request)) || offlinePage();
+  } finally {
+    clearTimeout(slowTimer);
+  }
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  if (request.mode === "navigate") {
+    if (PAGE_PATHS.test(url.pathname)) {
+      event.respondWith(networkFirstPage(event));
+    } else {
+      event.respondWith(fetch(request).catch(() => offlinePage()));
+    }
+  }
+});
+
+// --- Todo reminders (Web Push) ---
 
 self.addEventListener("push", (event) => {
   let data = {};

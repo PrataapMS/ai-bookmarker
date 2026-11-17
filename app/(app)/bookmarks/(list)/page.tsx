@@ -41,9 +41,10 @@ export default async function BookmarksPage({
     // The queue count only means things you can actually read now.
     prisma.bookmark.count({ where: { userId: user.id, readAt: null, status: "ready" } }),
     prisma.bookmark.count({ where: { userId: user.id, readAt: { not: null } } }),
-    prisma.bookmark.findFirst({
+    prisma.bookmark.findMany({
       where: { userId: user.id, status: "pending" },
       select: { id: true },
+      take: 20,
     }),
     prisma.bookmark.findMany({
       where: { userId: user.id, readAt: { not: null } },
@@ -108,7 +109,7 @@ export default async function BookmarksPage({
   return (
     <PageTransition>
       <div className="space-y-8">
-        <StatusPoller active={Boolean(pending)} />
+        <StatusPoller pendingIds={pending.map((b) => b.id)} />
 
         <section>
           <h1 className="mb-1 text-xl font-semibold tracking-tight">Bookmarks</h1>

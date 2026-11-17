@@ -5,6 +5,11 @@ import { RegisterServiceWorker } from "./_components/register-service-worker";
 export const metadata: Metadata = {
   title: "BookmarkAI",
   description: "Save links, get AI summaries, key takeaways, and action items.",
+  applicationName: "BookmarkAI",
+  // "Add to Home Screen" on iPhone/iPad: open full screen like an app, with
+  // this name under the icon (icon comes from app/apple-icon.tsx).
+  appleWebApp: { capable: true, title: "BookmarkAI", statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 // Colours the Android system bars when running as an installed app. The

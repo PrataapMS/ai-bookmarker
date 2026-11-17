@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { AppHistory } from "./_components/app-history";
 import { SectionSwipe } from "./_components/section-swipe";
 import { Sidebar } from "./_components/sidebar";
+import { OfflineBanner } from "./_components/offline-banner";
 import "./engage.css";
 
 export default async function AppLayout({
@@ -25,6 +26,7 @@ export default async function AppLayout({
         </SectionSwipe>
       </main>
       <AppHistory />
+      <OfflineBanner />
     </div>
   );
 }
