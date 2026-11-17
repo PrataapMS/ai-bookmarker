@@ -85,7 +85,7 @@ export default async function BookmarkDetailPage({
   return (
     <PageTransition>
     <div className="space-y-6">
-      <StatusPoller active={bookmark.status === "pending"} />
+      <StatusPoller pendingIds={bookmark.status === "pending" && isOwner ? [bookmark.id] : []} />
 
       <div>
         <Link

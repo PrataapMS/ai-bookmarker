@@ -33,6 +33,17 @@ function isIosBrowserTab() {
   return ios && !window.matchMedia("(display-mode: standalone)").matches;
 }
 
+const RESAVE_KEY = "push-resaved-at";
+
+function resaveDue(): boolean {
+  try {
+    const last = Number(localStorage.getItem(RESAVE_KEY) ?? 0);
+    if (Date.now() - last < 24 * 60 * 60 * 1000) return false;
+    localStorage.setItem(RESAVE_KEY, String(Date.now()));
+  } catch {}
+  return true;
+}
+
 async function currentSubscription() {
   const reg = await navigator.serviceWorker.getRegistration();
   return reg ? reg.pushManager.getSubscription() : null;
@@ -51,8 +62,10 @@ export function RemindersToggle({ publicKey }: { publicKey: string }) {
       else if (Notification.permission === "denied") next = "denied";
       else {
         const sub = await currentSubscription();
-        // Re-save so the server always knows this device (cheap upsert).
-        if (sub) await savePushSubscription(sub.toJSON());
+        // Re-save so the server always knows this device, at most daily:
+        // server actions run one at a time, so doing it on every visit made
+        // the first tap on the page wait behind it.
+        if (sub && resaveDue()) void savePushSubscription(sub.toJSON());
         next = sub ? "on" : "off";
       }
       if (!cancelled) setStatus(next);
