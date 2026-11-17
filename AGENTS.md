@@ -33,10 +33,11 @@ takeaways, action items; action items promote into a todo list.
   users/visitors (README, SECURITY, a public roadmap or feature overview).
   Never commit plans, specs, decision logs, or implementation notes; those
   live in `docs/local/` and `CLAUDE.local.md` (both gitignored).
-- `main` is protected by a GitHub ruleset ("Protect main"): only the repo admin
-  (the user) can push, nobody can delete or force-push it; `v*` release tags
-  are protected the same way. Don't change rulesets or repo settings without
-  asking.
+- `main` is protected by a GitHub ruleset ("Protect main"): changes land
+  through pull requests (no approvals needed, so the normal merge button
+  works), nobody can delete or force-push it, and only the repo admin (the
+  user) can bypass to push directly. `v*` release tags can't be deleted or
+  moved. Don't change rulesets or repo settings without asking.
 - Branching: small changes (a handful of files; no schema, auth, or dependency
   changes) may be pushed directly to `main` once the user has verified them.
   For anything larger, ask the user whether to push to `main` or a feature
@@ -50,12 +51,15 @@ takeaways, action items; action items promote into a todo list.
   `ai-bookmarker`, scope `prtps-projects`. Functions pinned to `sin1`
   (vercel.json) to sit next to the database.
 - Deploys run in GitHub Actions (no Vercel git integration). `ci.yml` lints and
-  builds every PR and push to `main` and reports each build on Telegram. When a
-  push to `main` raises the **major or minor** `package.json` version (e.g.
-  1.2.x → 1.3.0 or 2.0.0; patch bumps never deploy), `deploy.yml` lints, builds,
-  applies migrations, runs `vercel deploy --prod`, smoke-tests, tags `vX.Y.Z`
-  with a GitHub Release, and reports what's new on Telegram. `deploy.yml` can also be run
-  by hand from the Actions tab. Don't deploy from a laptop unless Actions is
+  builds every PR and push to `main`. When a push to `main` raises the **major
+  or minor** `package.json` version (e.g. 1.2.x → 1.3.0 or 2.0.0; patch bumps
+  never deploy), it calls `deploy.yml`, whose stages are separate jobs so the
+  run graph shows progress: 1 Verify (skipped lint/build when CI already
+  passed) → 2 Migrate database → 3 Deploy to Vercel → 4 Smoke test → 5 Tag
+  release. Telegram gets **one** message per run, sent last by `ci.yml`'s
+  Notify job: the deploy result if a deploy ran, else the build result.
+  `deploy.yml` can also be run by hand from the Actions tab (it then notifies
+  itself). Don't deploy from a laptop unless Actions is
   down. See `.claude/skills/deploy/SKILL.md` for the full pipeline.
 - GitHub repo secrets used by `deploy.yml`: `DATABASE_URL`, `VERCEL_TOKEN`,
   `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `TELEGRAM_BOT_TOKEN`,
