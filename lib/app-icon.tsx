@@ -1,5 +1,6 @@
 import "server-only";
 import { ImageResponse } from "next/og";
+import { cacheLife } from "next/cache";
 
 // The app mark: a white bookmark ribbon on the accent square. Drawn as an
 // inline SVG path so nothing has to be committed as a binary asset and no
@@ -45,4 +46,19 @@ export function renderAppIcon({
     ),
     { width: size, height: size },
   );
+}
+
+/**
+ * The icon as a PNG response, rendered once and cached, so icon routes are
+ * prerendered at build time instead of drawing the image on every request.
+ */
+export async function appIconResponse(options: { size: number; maskable?: boolean }) {
+  const png = await appIconPng(options);
+  return new Response(png, { headers: { "Content-Type": "image/png" } });
+}
+
+async function appIconPng(options: { size: number; maskable?: boolean }) {
+  "use cache";
+  cacheLife("max");
+  return new Uint8Array(await renderAppIcon(options).arrayBuffer());
 }

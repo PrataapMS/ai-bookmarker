@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addTodo, type TodoState } from "@/app/actions/todos";
 import { localParts } from "@/lib/todo-client";
 import { DateTimePicker, Sheet, describeWhen } from "./date-time-sheet";
@@ -16,6 +16,10 @@ export function AddTodoForm() {
   const [picking, setPicking] = useState(false);
   const closePicker = useCallback(() => setPicking(false), []);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Screens stay mounted (hidden) after navigating away; don't come back to
+  // this left open.
+  useLayoutEffect(() => () => setPicking(false), []);
 
   // Clear the input after a successful add.
   useEffect(() => {

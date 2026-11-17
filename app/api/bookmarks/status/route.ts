@@ -6,8 +6,6 @@ import { prisma } from "@/lib/prisma";
 // polling with them made taps on votes, stars or toggles wait behind every
 // in-flight refresh. This just reports whether anything is still pending.
 
-export const dynamic = "force-dynamic";
-
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });

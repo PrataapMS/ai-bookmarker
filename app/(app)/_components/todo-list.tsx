@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -210,6 +210,16 @@ function TodoMenu({ todo }: { todo: TodoView }) {
   const [, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
   const closeSheet = useCallback(() => setSheet(null), []);
+
+  // Screens stay mounted (hidden) after navigating away; don't come back to
+  // this left open.
+  useLayoutEffect(
+    () => () => {
+      setOpen(false);
+      setSheet(null);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;

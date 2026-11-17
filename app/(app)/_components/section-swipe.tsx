@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSectionNavigate } from "./app-history";
 import { NAV_ITEMS } from "./nav-items";
@@ -18,8 +18,16 @@ const FLICK_SPEED = 0.4; // px per ms
  * content follows the finger a little, with a rubber band at either end.
  * Detail pages don't swipe.
  */
-export function SectionSwipe({ children }: { children: React.ReactNode }) {
+// usePathname() suspends while prerendering dynamic routes, so it's read in
+// its own boundary rather than holding back the whole page.
+function PathnameReporter({ onChange }: { onChange: (pathname: string) => void }) {
   const pathname = usePathname();
+  useEffect(() => onChange(pathname), [pathname, onChange]);
+  return null;
+}
+
+export function SectionSwipe({ children }: { children: React.ReactNode }) {
+  const [pathname, setPathname] = useState<string | null>(null);
   const navigate = useSectionNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const index = NAV_ITEMS.findIndex((item) => item.href === pathname);
@@ -95,6 +103,9 @@ export function SectionSwipe({ children }: { children: React.ReactNode }) {
   // pan-y hands horizontal drags to us instead of the browser.
   return (
     <div ref={ref} className={index >= 0 ? "touch-pan-y" : undefined}>
+      <Suspense fallback={null}>
+        <PathnameReporter onChange={setPathname} />
+      </Suspense>
       {children}
     </div>
   );

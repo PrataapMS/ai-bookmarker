@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -39,7 +40,16 @@ function Card({
 
 const code = "rounded bg-background px-1.5 py-0.5 font-mono text-xs break-all";
 
-export default async function InstallPage() {
+export default function InstallPage() {
+  return (
+    <Suspense fallback={null}>
+      <InstallGuide />
+    </Suspense>
+  );
+}
+
+// Needs the request (host for the bookmarklet, session for the back link).
+async function InstallGuide() {
   const [user, h] = await Promise.all([getCurrentUser(), headers()]);
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "ai-bookmarker.vercel.app";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");

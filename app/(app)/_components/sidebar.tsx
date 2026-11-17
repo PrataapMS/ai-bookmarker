@@ -49,7 +49,11 @@ function SignOutIcon() {
   );
 }
 
-export function Sidebar({ email }: { email: string }) {
+/**
+ * `account` is the signed-in email, streamed in by the layout (it needs the
+ * session, which the static shell doesn't have).
+ */
+export function Sidebar({ account }: { account: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const active = activeSection(pathname, searchParams.get("from"));
@@ -195,8 +199,8 @@ export function Sidebar({ email }: { email: string }) {
             <span aria-hidden>📲</span>
             <span className={hideWhenCollapsed}>Install the app</span>
           </Link>
-          <span className={`truncate px-1 text-sm text-muted md:text-xs ${hideWhenCollapsed}`} title={email}>
-            {email}
+          <span className={`truncate px-1 text-sm text-muted md:text-xs ${hideWhenCollapsed}`}>
+            {account}
           </span>
           <form
             action={logout}

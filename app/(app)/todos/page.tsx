@@ -10,8 +10,7 @@ import { TodoExport } from "../_components/todo-export";
 import { TodoList } from "../_components/todo-list";
 import { RemindersToggle } from "../_components/reminders-toggle";
 import { PageTransition } from "../_components/page-transition";
-
-export const dynamic = "force-dynamic";
+import { LiveData } from "../_components/live-data";
 
 export default async function TodosPage() {
   const [user, timeZone] = await Promise.all([requireUser(), getTimeZone()]);
@@ -63,6 +62,7 @@ export default async function TodosPage() {
   return (
     <PageTransition>
     <div className="space-y-6">
+      <LiveData />
       <section>
         <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Todos</h1>

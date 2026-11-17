@@ -1,5 +1,4 @@
-import { ViewTransition } from "react";
-import Link from "next/link";
+import { Suspense, ViewTransition } from "react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -15,19 +14,19 @@ import {
 import { StatusBadge } from "../../_components/status-badge";
 import { StatusPoller } from "../../_components/status-poller";
 import { PageTransition } from "../../_components/page-transition";
+import { LiveData } from "../../_components/live-data";
 import { VoteButtons } from "../../_components/vote-buttons";
 import { ReadToggle } from "../../_components/read-toggle";
 import { AddActionItemTodoButton } from "../../_components/add-action-item-todo-button";
 import { StarButton } from "../../_components/star-button";
 import { MoreLikeThis } from "../../_components/more-like-this";
 import { CopyButton } from "../../_components/copy-button";
+import { BackLink } from "../../_components/back-link";
 import {
   bookmarkMarkdown,
   bulletsMarkdown,
   checklistMarkdown,
 } from "@/lib/markdown";
-
-export const dynamic = "force-dynamic";
 // Retry re-runs fetch + summarize via after(); allow the platform maximum.
 export const maxDuration = 300;
 
@@ -85,16 +84,13 @@ export default async function BookmarkDetailPage({
   return (
     <PageTransition>
     <div className="space-y-6">
+      <LiveData />
       <StatusPoller pendingIds={bookmark.status === "pending" && isOwner ? [bookmark.id] : []} />
 
       <div>
-        <Link
-          href={backHref}
-          transitionTypes={["nav-back"]}
-          className="text-sm text-muted hover:text-foreground"
-        >
+        <BackLink href={backHref} className="text-sm text-muted hover:text-foreground">
           ← {backLabel}
-        </Link>
+        </BackLink>
       </div>
 
       <header className="space-y-2">
@@ -350,12 +346,15 @@ export default async function BookmarkDetailPage({
             )}
           </section>
 
-          <MoreLikeThis
-            bookmarkId={bookmark.id}
-            tags={bookmark.tags}
-            userId={user.id}
-            from={fromFeed || fromStarred ? from : undefined}
-          />
+          {/* Streams in after the rest of the page. */}
+          <Suspense fallback={null}>
+            <MoreLikeThis
+              bookmarkId={bookmark.id}
+              tags={bookmark.tags}
+              userId={user.id}
+              from={fromFeed || fromStarred ? from : undefined}
+            />
+          </Suspense>
         </>
       )}
 
