@@ -278,6 +278,10 @@ export default async function LandingPage() {
 
       <footer className="relative z-10 border-t border-border py-6 text-center text-xs text-muted">
         🔖 BookmarkAI — save links, get summaries, act on what you read.
+        <span className="mx-2">·</span>
+        <Link href="/install" className="underline-offset-2 hover:text-foreground hover:underline">
+          Install the app
+        </Link>
       </footer>
     </div>
   );

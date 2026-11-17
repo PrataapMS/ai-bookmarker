@@ -185,10 +185,27 @@ export function Sidebar({ email }: { email: string }) {
 
         <div className={`mt-auto flex flex-col gap-4 border-t border-border p-4 text-base md:gap-3 md:p-3 md:text-sm ${collapsed ? "md:items-center" : ""}`}>
           <ThemeToggle className={collapsed ? "md:flex-col" : ""} />
+          <Link
+            href="/install"
+            title="Install the app"
+            className={`flex items-center gap-3 rounded-md px-3 py-2 text-muted transition hover:bg-background hover:text-foreground md:gap-2 ${
+              collapsed ? "md:justify-center md:px-0" : ""
+            }`}
+          >
+            <span aria-hidden>📲</span>
+            <span className={hideWhenCollapsed}>Install the app</span>
+          </Link>
           <span className={`truncate px-1 text-sm text-muted md:text-xs ${hideWhenCollapsed}`} title={email}>
             {email}
           </span>
-          <form action={logout} className="w-full">
+          <form
+            action={logout}
+            className="w-full"
+            // Offline copies of pages are this person's data (see public/sw.js).
+            onSubmit={() => {
+              if ("caches" in window) void caches.delete("pages-v1");
+            }}
+          >
             <button
               type="submit"
               title="Sign out"
