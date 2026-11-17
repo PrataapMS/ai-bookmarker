@@ -1,10 +1,12 @@
-// Reports a production deploy on Telegram. Run by GitHub Actions (deploy.yml); never part of the app build.
+// Reports CI builds and production deploys on Telegram. Run by GitHub Actions; never part of the app build.
 //
-//   node scripts/notify-telegram.mjs
+//   node scripts/notify-telegram.mjs build    after every CI run (ci.yml): pass or fail, and what changed
+//   node scripts/notify-telegram.mjs deploy   after a deploy (deploy.yml): what's new, or where it failed
 //
 // Needs TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID; without them it prints the message and exits.
-// Reads JOB_STATUS, the *_OUTCOME of each deploy step, MIGRATIONS, DEPLOYMENT_URL, SITE_URL, RUN_URL,
-// GITHUB_SERVER_URL and GITHUB_REPOSITORY.
+// build reads BUILD_RESULT, WILL_DEPLOY, EVENT_NAME, REF_NAME, BEFORE, AFTER, COMPARE_URL, PR_* and RUN_URL.
+// deploy reads JOB_STATUS, the *_OUTCOME of each deploy step, MIGRATIONS, DEPLOYMENT_URL, SITE_URL and RUN_URL.
+// Both read GITHUB_SERVER_URL and GITHUB_REPOSITORY.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
@@ -21,6 +23,46 @@ const escapeHtml = (text) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const link = (url, label) => `<a href="${escapeHtml(url)}">${escapeHtml(label)}</a>`;
 const failed = (outcome) => outcome === 'failure' || outcome === 'cancelled';
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const ZERO_SHA = /^0+$/;
+const RELEASE_COMMIT = /^Release v?\d+\.\d+\.\d+$/i;
+// Paths that never reach users: commits touching only these are maintenance, not features.
+const NOT_SHIPPED = [
+  ':(exclude).github',
+  ':(exclude).claude',
+  ':(exclude)scripts',
+  ':(exclude)docs',
+  ':(exclude)*.md',
+  ':(exclude)package-lock.json',
+];
+const repoUrl = () =>
+  env('GITHUB_SERVER_URL') && env('GITHUB_REPOSITORY')
+    ? `${env('GITHUB_SERVER_URL')}/${env('GITHUB_REPOSITORY')}`
+    : '';
+const version = () => JSON.parse(readFileSync('package.json', 'utf8')).version;
+
+function commitExists(sha) {
+  if (!sha || ZERO_SHA.test(sha)) return false;
+  try {
+    git('cat-file', '-e', `${sha}^{commit}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function versionAt(sha) {
+  try {
+    return JSON.parse(git('show', `${sha}:package.json`)).version;
+  } catch {
+    return undefined;
+  }
+}
+
+const subjects = (...args) =>
+  git('log', '--no-merges', '--format=%s', ...args)
+    .split('\n')
+    .filter(Boolean);
 
 function bulletList(items) {
   const shown = items.slice(0, MAX_BULLETS).map((item) => `• ${escapeHtml(item)}`);
@@ -66,18 +108,14 @@ function failureNote(migrations) {
   return ['Setup', 'Nothing was deployed; production and the database are unchanged.'];
 }
 
-function message() {
-  const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
-  const tag = `v${version}`;
+function deployMessage() {
+  const tag = `v${version()}`;
   const status = env('JOB_STATUS', 'success');
   const migrations = env('MIGRATIONS').split(',').filter(Boolean);
   const runUrl = env('RUN_URL');
   const siteUrl = env('SITE_URL');
   const deploymentUrl = env('DEPLOYMENT_URL');
-  const repoUrl =
-    env('GITHUB_SERVER_URL') && env('GITHUB_REPOSITORY')
-      ? `${env('GITHUB_SERVER_URL')}/${env('GITHUB_REPOSITORY')}`
-      : '';
+  const repo = repoUrl();
 
   // The release step failing alone still means the new version is live.
   const releaseFailed = failed(env('RELEASE_OUTCOME'));
@@ -96,15 +134,17 @@ function message() {
   }
 
   const since = previousTag(tag);
-  const commits = git('log', '--no-merges', '--format=%s', since ? `${since}..HEAD` : '-1')
-    .split('\n')
-    .filter(Boolean);
+  const range = since ? [`${since}..HEAD`] : ['-1'];
+  // Features: commits that changed the app, minus the version bump itself.
+  const features = subjects(...range, '--', '.', ...NOT_SHIPPED).filter((s) => !RELEASE_COMMIT.test(s));
+  const maintenance = subjects(...range).filter((s) => !RELEASE_COMMIT.test(s)).length - features.length;
   const lines = [`🚀 <b>${APP} ${escapeHtml(tag)}</b> is live`, ''];
-  if (since) {
-    const count = commits.length === 1 ? '1 commit' : `${commits.length} commits`;
-    lines.push(`${count} since ${escapeHtml(since)}:`);
+  if (features.length) {
+    lines.push(`✨ What's new${since ? ` since ${escapeHtml(since)}` : ''}:`, bulletList(features));
+  } else {
+    lines.push('No app changes, only a redeploy.');
   }
-  lines.push(bulletList(commits));
+  if (maintenance > 0) lines.push('', `Plus ${plural(maintenance, 'maintenance commit')} (CI, docs, tooling).`);
   if (migrations.length) {
     lines.push('', '🗄 Migrations applied:', bulletList(migrations));
   }
@@ -113,9 +153,59 @@ function message() {
   }
   const links = [];
   if (siteUrl) links.push(link(siteUrl, `Open ${APP}`));
-  if (repoUrl && !releaseFailed) links.push(link(`${repoUrl}/releases/tag/${tag}`, 'Release notes'));
-  if (repoUrl && since) links.push(link(`${repoUrl}/compare/${since}...${tag}`, 'Changes'));
+  if (repo && !releaseFailed) links.push(link(`${repo}/releases/tag/${tag}`, 'Release notes'));
+  if (repo && since) links.push(link(`${repo}/compare/${since}...${tag}`, 'Changes'));
   if (deploymentUrl) links.push(link(deploymentUrl, 'Deployment'));
+  if (links.length) lines.push('', links.join(' · '));
+  return lines.join('\n');
+}
+
+/** One CI run: pull request or branch push, pass or fail. */
+function buildMessage() {
+  const result = env('BUILD_RESULT', 'success');
+  const passed = result === 'success';
+  const icon = passed ? '✅' : '❌';
+  const outcome = passed ? 'build passed' : result === 'cancelled' ? 'build cancelled' : 'build failed';
+  const runUrl = env('RUN_URL');
+  const lines = [];
+
+  if (env('EVENT_NAME') === 'pull_request') {
+    const pr = `PR #${env('PR_NUMBER')}`;
+    lines.push(`${icon} <b>${APP}</b> · ${escapeHtml(pr)} · ${outcome}`, '', escapeHtml(env('PR_TITLE')));
+    if (env('PR_BRANCH')) lines.push(`<i>${escapeHtml(env('PR_BRANCH'))}</i>`);
+    const links = [];
+    if (env('PR_URL')) links.push(link(env('PR_URL'), 'Open the PR'));
+    if (runUrl) links.push(link(runUrl, 'Run'));
+    if (links.length) lines.push('', links.join(' · '));
+    return lines.join('\n');
+  }
+
+  const branch = env('REF_NAME', 'main');
+  const after = env('AFTER', 'HEAD');
+  // A new branch, a force push or a manual run has no usable "before"; describe the last commit only.
+  const before = env('BEFORE');
+  const base = commitExists(before) ? before : undefined;
+  const commits = base ? subjects(`${base}..${after}`) : subjects('-1', after);
+  lines.push(`${icon} <b>${APP}</b> · ${escapeHtml(branch)} · ${outcome} · ${plural(commits.length, 'commit')}`, '');
+  lines.push(bulletList(commits));
+
+  const oldVersion = base ? versionAt(base) : undefined;
+  const newVersion = versionAt(after);
+  if (oldVersion && newVersion && oldVersion !== newVersion) {
+    const deploying = passed && env('WILL_DEPLOY') === 'true';
+    lines.push(
+      '',
+      `🏷 Version ${escapeHtml(oldVersion)} → ${escapeHtml(newVersion)}. ` +
+        (deploying
+          ? 'Major bump: deploying to production now.'
+          : passed
+            ? 'Not a major bump, so production is unchanged.'
+            : 'Not deployed: the build failed.'),
+    );
+  }
+  const links = [];
+  if (env('COMPARE_URL')) links.push(link(env('COMPARE_URL'), 'Changes'));
+  if (runUrl) links.push(link(runUrl, 'Run'));
   if (links.length) lines.push('', links.join(' · '));
   return lines.join('\n');
 }
@@ -189,4 +279,10 @@ async function send(text) {
   }
 }
 
-await send(message());
+const mode = process.argv[2];
+const messages = { build: buildMessage, deploy: deployMessage };
+if (!Object.hasOwn(messages, mode)) {
+  console.error('Usage: node scripts/notify-telegram.mjs build|deploy');
+  process.exit(2);
+}
+await send(messages[mode]());

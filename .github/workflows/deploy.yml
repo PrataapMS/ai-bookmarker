@@ -1,6 +1,6 @@
 name: Deploy to Vercel
 
-# Called by CI when a version bump lands on main, or run by hand from the Actions tab.
+# Called by CI when a major version bump lands on main, or run by hand from the Actions tab.
 # Lint + build, apply pending Prisma migrations, deploy to Vercel production, smoke-test,
 # tag a GitHub Release, and report the outcome on Telegram.
 on:
@@ -131,4 +131,4 @@ jobs:
           MIGRATIONS: ${{ steps.migrate.outputs.applied }}
           DEPLOYMENT_URL: ${{ steps.vercel.outputs.url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node scripts/notify-telegram.mjs
+        run: node scripts/notify-telegram.mjs deploy

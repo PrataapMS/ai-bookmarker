@@ -1,7 +1,8 @@
 name: CI
 
-# PRs and pushes to main are linted and built. On main, a version bump in package.json
-# (a "Release x.y.z" commit) deploys to production through deploy.yml. Docs-only changes skip CI.
+# PRs and pushes to main are linted and built, and every build is reported on Telegram.
+# On main, a major version bump in package.json (e.g. 0.x -> 1.0.0, 1.x -> 2.0.0) deploys to
+# production through deploy.yml. Docs-only changes skip CI.
 on:
   push:
     branches: [main]
@@ -34,7 +35,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
-  # Deploys only when package.json's version changed in this push.
+  # Deploys only when the major version goes up in this push.
   release-check:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -50,12 +51,46 @@ jobs:
         env:
           BEFORE: ${{ github.event.before }}
         run: |
-          version() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).version)}catch{console.log("")}})'; }
-          new=$(version < package.json)
-          old=$(git show "$BEFORE:package.json" 2>/dev/null | version || true)
-          echo "version: ${old:-none} -> $new"
-          if [ -n "$new" ] && [ "$new" != "$old" ]; then deploy=true; else deploy=false; fi
+          major() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).version.split(".")[0])}catch{console.log(0)}})'; }
+          new=$(major < package.json)
+          old=$(git show "$BEFORE:package.json" 2>/dev/null | major || echo 0)
+          echo "major: $old -> $new"
+          if [ "$new" -gt "$old" ]; then deploy=true; else deploy=false; fi
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+
+  # Reports every build (pass or fail) on Telegram; superseded runs that were cancelled stay quiet.
+  # A notification problem never fails CI.
+  notify:
+    needs: [verify, release-check]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BUILD_RESULT: ${{ needs.verify.result }}
+          WILL_DEPLOY: ${{ needs.release-check.outputs.deploy }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          COMPARE_URL: ${{ github.event.compare }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_BRANCH: ${{ github.head_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/notify-telegram.mjs build
 
   # deploy.yml lints and builds again itself, so a broken release is still reported on Telegram.
   deploy:

@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Ship BookmarkAI changes — build + lint, hand off to the user for manual verification, open a release PR that bumps the version; GitHub Actions then migrates, deploys to Vercel production, smoke-tests, tags and notifies Telegram. Use when the user asks to deploy, ship, release, or push to production.
+description: Ship BookmarkAI changes — build + lint, hand off to the user for manual verification, open a release PR that bumps the major version; GitHub Actions then migrates, deploys to Vercel production, smoke-tests, tags and notifies Telegram. Use when the user asks to deploy, ship, release, or push to production.
 ---
 
 # Ship BookmarkAI changes to production
@@ -9,7 +9,7 @@ Pre-flight — read `AGENTS.md` first (commit rules, gotchas). Then follow the
 pipeline in order; each step gates the next.
 
 Production deploys happen **only in GitHub Actions**: a push to `main` that
-changes the `package.json` version triggers `.github/workflows/deploy.yml`
+raises the **major** `package.json` version triggers `.github/workflows/deploy.yml`
 (via `ci.yml`). Nobody runs `vercel deploy` or Prisma migrations by hand.
 
 ## 1. Automated checks — machines only, no browsing loops
@@ -45,8 +45,9 @@ to look for. Wait for their explicit go-ahead. Do not push until they confirm
 
 ## 4. Release (this is what deploys)
 
-On a `release/x.y.z` branch: `npm version <patch|minor|major> --no-git-tag-version`,
-commit `Release x.y.z` (package.json + package-lock.json), open a PR to `main`.
+On a `release/x.0.0` branch: `npm version major --no-git-tag-version`,
+commit `Release x.0.0` (package.json + package-lock.json), open a PR to `main`.
+Minor and patch bumps don't deploy; their changes ship with the next major.
 When the user merges it, Actions deploys. Don't push tags yourself; the
 workflow creates `vX.Y.Z` and the GitHub Release after a successful deploy.
 

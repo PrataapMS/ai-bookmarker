@@ -165,14 +165,17 @@ The app is deployed to **Vercel** with serverless functions pinned to the
 
 ### CI/CD (GitHub Actions)
 
-- **`ci.yml`** lints and builds every pull request and push to `main`.
-- **`deploy.yml`** runs when a push to `main` changes the `package.json`
-  version (merge a `Release x.y.z` PR), or by hand from the Actions tab. It
-  lints and builds, applies pending migrations (`prisma migrate deploy`),
-  deploys to Vercel production, smoke-tests the live site, tags `vX.Y.Z` with a
-  GitHub Release, and reports the outcome on Telegram via
-  [`scripts/notify-telegram.mjs`](scripts/notify-telegram.mjs). A notification
-  problem never fails a deploy.
+- **`ci.yml`** lints and builds every pull request and push to `main`, and
+  reports each build (pass or fail, with the commits) on Telegram.
+- **`deploy.yml`** runs when a push to `main` raises the **major** version in
+  `package.json` (e.g. 0.x → 1.0.0; minor and patch bumps never deploy), or by
+  hand from the Actions tab. It lints and builds, applies pending migrations
+  (`prisma migrate deploy`), deploys to Vercel production, smoke-tests the live
+  site, tags `vX.Y.Z` with a GitHub Release, and posts what's new since the
+  last release (app changes, migrations) on Telegram, or the stage that failed.
+
+Both notifications come from [`scripts/notify-telegram.mjs`](scripts/notify-telegram.mjs);
+a notification problem never fails CI or a deploy.
 
 Repository secrets it needs:
 
