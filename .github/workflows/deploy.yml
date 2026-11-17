@@ -1,6 +1,6 @@
 name: Deploy to Vercel
 
-# Called by CI when a major version bump lands on main, or run by hand from the Actions tab.
+# Called by CI when a major or minor version bump lands on main, or run by hand from the Actions tab.
 # Lint + build, apply pending Prisma migrations, deploy to Vercel production, smoke-test,
 # tag a GitHub Release, and report the outcome on Telegram.
 on:

@@ -37,8 +37,8 @@ takeaways, action items; action items promote into a todo list.
   (vercel.json) to sit next to the database.
 - Deploys run in GitHub Actions (no Vercel git integration). `ci.yml` lints and
   builds every PR and push to `main` and reports each build on Telegram. When a
-  push to `main` raises the **major** `package.json` version (e.g. 0.x → 1.0.0,
-  1.x → 2.0.0; minor/patch bumps never deploy), `deploy.yml` lints, builds,
+  push to `main` raises the **major or minor** `package.json` version (e.g.
+  1.2.x → 1.3.0 or 2.0.0; patch bumps never deploy), `deploy.yml` lints, builds,
   applies migrations, runs `vercel deploy --prod`, smoke-tests, tags `vX.Y.Z`
   with a GitHub Release, and reports what's new on Telegram. `deploy.yml` can also be run
   by hand from the Actions tab. Don't deploy from a laptop unless Actions is

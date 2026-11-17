@@ -197,9 +197,9 @@ function buildMessage() {
       '',
       `🏷 Version ${escapeHtml(oldVersion)} → ${escapeHtml(newVersion)}. ` +
         (deploying
-          ? 'Major bump: deploying to production now.'
+          ? 'Release bump: deploying to production now.'
           : passed
-            ? 'Not a major bump, so production is unchanged.'
+            ? 'Patch bump only, so production is unchanged.'
             : 'Not deployed: the build failed.'),
     );
   }

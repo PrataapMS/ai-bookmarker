@@ -167,8 +167,8 @@ The app is deployed to **Vercel** with serverless functions pinned to the
 
 - **`ci.yml`** lints and builds every pull request and push to `main`, and
   reports each build (pass or fail, with the commits) on Telegram.
-- **`deploy.yml`** runs when a push to `main` raises the **major** version in
-  `package.json` (e.g. 0.x → 1.0.0; minor and patch bumps never deploy), or by
+- **`deploy.yml`** runs when a push to `main` raises the **major or minor**
+  version in `package.json` (e.g. 1.2.x → 1.3.0; patch bumps never deploy), or by
   hand from the Actions tab. It lints and builds, applies pending migrations
   (`prisma migrate deploy`), deploys to Vercel production, smoke-tests the live
   site, tags `vX.Y.Z` with a GitHub Release, and posts what's new since the
