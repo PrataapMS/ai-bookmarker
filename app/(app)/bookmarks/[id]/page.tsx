@@ -20,6 +20,12 @@ import { ReadToggle } from "../../_components/read-toggle";
 import { AddActionItemTodoButton } from "../../_components/add-action-item-todo-button";
 import { StarButton } from "../../_components/star-button";
 import { MoreLikeThis } from "../../_components/more-like-this";
+import { CopyButton } from "../../_components/copy-button";
+import {
+  bookmarkMarkdown,
+  bulletsMarkdown,
+  checklistMarkdown,
+} from "@/lib/markdown";
 
 export const dynamic = "force-dynamic";
 // Retry re-runs fetch + summarize via after(); allow the platform maximum.
@@ -162,6 +168,13 @@ export default async function BookmarkDetailPage({
           ) : (
             <span className="text-xs text-muted">🌐 Public bookmark</span>
           )}
+          {bookmark.status === "ready" && (
+            <CopyButton
+              text={bookmarkMarkdown(bookmark)}
+              label="Copy all"
+              title="Copy title, summary, takeaways and action items as Markdown"
+            />
+          )}
         </div>
       </header>
 
@@ -253,17 +266,28 @@ export default async function BookmarkDetailPage({
       {bookmark.status === "ready" && (
         <>
           <section className="rounded-xl border border-border bg-surface p-5">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
-              Summary
-            </h2>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                Summary
+              </h2>
+              {bookmark.summary && (
+                <CopyButton text={bookmark.summary} title="Copy summary as Markdown" />
+              )}
+            </div>
             <p className="leading-relaxed">{bookmark.summary}</p>
           </section>
 
           {bookmark.takeaways.length > 0 && (
             <section className="rounded-xl border border-border bg-surface p-5">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-                💡 Key takeaways
-              </h2>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                  💡 Key takeaways
+                </h2>
+                <CopyButton
+                  text={bulletsMarkdown(bookmark.takeaways)}
+                  title="Copy key takeaways as a Markdown list"
+                />
+              </div>
               <ul className="space-y-2">
                 {bookmark.takeaways.map((t) => (
                   <li key={t.id} className="flex gap-2.5 text-sm leading-relaxed">
@@ -276,9 +300,17 @@ export default async function BookmarkDetailPage({
           )}
 
           <section className="rounded-xl border border-border bg-surface p-5">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-              ✅ Action items
-            </h2>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                ✅ Action items
+              </h2>
+              {bookmark.actionItems.length > 0 && (
+                <CopyButton
+                  text={checklistMarkdown(bookmark.actionItems)}
+                  title="Copy action items as a Markdown checklist"
+                />
+              )}
+            </div>
             {bookmark.actionItems.length === 0 ? (
               <p className="text-sm text-muted">
                 No action items suggested for this piece.
