@@ -1,8 +1,9 @@
 name: CI
 
-# PRs and pushes to main are linted and built, and every build is reported on Telegram.
-# On main, a major or minor version bump in package.json (e.g. 1.2.x -> 1.3.0 or 2.0.0) deploys
-# to production through deploy.yml; patch bumps don't. Docs-only changes skip CI.
+# PRs and pushes to main are linted and built. On main, a major or minor version bump in
+# package.json (e.g. 1.2.x -> 1.3.0 or 2.0.0) then deploys to production through deploy.yml,
+# whose stages show up in this run's graph; patch bumps don't deploy. Docs-only changes skip CI.
+# One Telegram message at the very end: the deploy result when a deploy ran, else the build result.
 on:
   push:
     branches: [main]
@@ -21,6 +22,7 @@ concurrency:
 
 jobs:
   verify:
+    name: Lint & build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -37,6 +39,7 @@ jobs:
 
   # Deploys only when the major or minor version goes up in this push (not on patch bumps).
   release-check:
+    name: Release check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -64,10 +67,24 @@ jobs:
           fi
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
 
-  # Reports every build (pass or fail) on Telegram; superseded runs that were cancelled stay quiet.
-  # A notification problem never fails CI.
-  notify:
+  # Runs only after a passing build, so it skips its own lint + build.
+  deploy:
+    name: Deploy
     needs: [verify, release-check]
+    if: needs.release-check.outputs.deploy == 'true' && needs.verify.result == 'success'
+    permissions:
+      contents: write # release tag
+    uses: ./.github/workflows/deploy.yml
+    with:
+      skip_verify: true
+    secrets: inherit
+
+  # The one Telegram message per run, sent last: the deploy outcome (with what's new, or the
+  # stage that failed) when a deploy ran, otherwise the build outcome. Superseded runs that were
+  # cancelled stay quiet. A notification problem never fails CI.
+  notify:
+    name: Notify
+    needs: [verify, release-check, deploy]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -84,6 +101,8 @@ jobs:
       - env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODE: ${{ needs.deploy.result != 'skipped' && 'deploy' || 'build' }}
+          # build
           BUILD_RESULT: ${{ needs.verify.result }}
           WILL_DEPLOY: ${{ needs.release-check.outputs.deploy }}
           EVENT_NAME: ${{ github.event_name }}
@@ -95,14 +114,15 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_BRANCH: ${{ github.head_ref }}
+          # deploy: a stage that didn't report ok either failed or never ran; the script names
+          # the first one in order as the failed stage.
+          JOB_STATUS: ${{ needs.deploy.result }}
+          VERIFY_OUTCOME: ${{ needs.deploy.outputs.verified == 'true' && 'success' || 'failure' }}
+          MIGRATE_OUTCOME: ${{ needs.deploy.outputs.migrated == 'true' && 'success' || 'failure' }}
+          VERCEL_OUTCOME: ${{ needs.deploy.outputs.deployed == 'true' && 'success' || 'failure' }}
+          SMOKE_OUTCOME: ${{ needs.deploy.outputs.smoke_ok == 'true' && 'success' || 'failure' }}
+          RELEASE_OUTCOME: ${{ needs.deploy.outputs.released == 'true' && 'success' || 'failure' }}
+          MIGRATIONS: ${{ needs.deploy.outputs.migrations }}
+          DEPLOYMENT_URL: ${{ needs.deploy.outputs.deployment_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node scripts/notify-telegram.mjs build
-
-  # deploy.yml lints and builds again itself, so a broken release is still reported on Telegram.
-  deploy:
-    needs: release-check
-    if: needs.release-check.outputs.deploy == 'true'
-    permissions:
-      contents: write # release tag
-    uses: ./.github/workflows/deploy.yml
-    secrets: inherit
+        run: node scripts/notify-telegram.mjs "$MODE"

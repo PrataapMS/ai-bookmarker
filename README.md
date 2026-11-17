@@ -239,9 +239,9 @@ database. Deploys are driven entirely by GitHub Actions:
 
 | Workflow | When | What it does |
 |---|---|---|
-| [`ci.yml`](.github/workflows/ci.yml) | Every PR and push to `main` | Lint + build, report the result on Telegram |
+| [`ci.yml`](.github/workflows/ci.yml) | Every PR and push to `main` | Lint + build; on a release bump, runs the deploy stages below; then one Telegram message with the final result |
+| [`deploy.yml`](.github/workflows/deploy.yml) | Called by CI when a push to `main` bumps the **major or minor** version (patch bumps never deploy), or run by hand | Stages, each its own job in the run graph: **1 Verify → 2 Migrate database → 3 Deploy to Vercel → 4 Smoke test → 5 Tag release** (`vX.Y.Z` + GitHub Release) |
 | [`reminders.yml`](.github/workflows/reminders.yml) | Every 5 minutes | Calls `/api/cron/reminders` to push due and snoozed todo reminders (needs the `CRON_SECRET` secret) |
-| [`deploy.yml`](.github/workflows/deploy.yml) | A push to `main` that bumps the **major or minor** version (patch bumps never deploy), or a manual run | Lint, build, `prisma migrate deploy`, `vercel deploy --prod`, smoke test, tag `vX.Y.Z` with a GitHub Release, post release notes on Telegram |
 
 Production notes:
 

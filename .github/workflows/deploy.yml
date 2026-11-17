@@ -1,40 +1,53 @@
 name: Deploy to Vercel
 
 # Called by CI when a major or minor version bump lands on main, or run by hand from the Actions tab.
-# Lint + build, apply pending Prisma migrations, deploy to Vercel production, smoke-test,
-# tag a GitHub Release, and report the outcome on Telegram.
+# Each stage is its own job, so the run graph shows exactly how far a deploy got:
+#   1 Verify → 2 Migrate database → 3 Deploy to Vercel → 4 Smoke test → 5 Tag release
+# When called from CI, CI sends the single Telegram message at the end (from this workflow's
+# outputs). A manual run notifies from here instead.
 on:
   workflow_call:
+    inputs:
+      skip_verify:
+        description: Skip lint + build (the caller already verified this commit)
+        type: boolean
+        default: false
+    outputs:
+      verified:
+        value: ${{ jobs.verify.outputs.ok }}
+      migrated:
+        value: ${{ jobs.migrate.outputs.ok }}
+      migrations:
+        value: ${{ jobs.migrate.outputs.applied }}
+      deployed:
+        value: ${{ jobs.vercel.outputs.ok }}
+      deployment_url:
+        value: ${{ jobs.vercel.outputs.url }}
+      smoke_ok:
+        value: ${{ jobs.smoke.outputs.ok }}
+      released:
+        value: ${{ jobs.release.outputs.ok }}
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# One deploy at a time; a newer one waits instead of racing an older one.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  SITE_URL: https://ai-bookmarker.vercel.app
+
 jobs:
-  deploy:
+  verify:
+    name: 1 · Verify
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: write # release tag
-    environment:
-      name: production
-      url: https://ai-bookmarker.vercel.app
-    # One deploy at a time; a newer one waits instead of racing an older one.
-    concurrency:
-      group: production-deploy
-      cancel-in-progress: false
-    env:
-      SITE_URL: https://ai-bookmarker.vercel.app
+    timeout-minutes: 10
+    outputs:
+      ok: ${{ steps.done.outputs.ok }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          cache: npm
-
       - name: Check secrets
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -51,16 +64,49 @@ jobs:
             exit 1
           fi
 
-      - run: npm ci
+      - if: ${{ !inputs.skip_verify }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - id: verify
-        name: Lint and build
+      - if: ${{ !inputs.skip_verify }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Lint and build
+        if: ${{ !inputs.skip_verify }}
         run: |
+          npm ci
           npm run lint
           npm run build
 
-      # Applies only migrations not yet in _prisma_migrations; never resets or drops data.
-      # Runs before the deploy, so the old code must tolerate the new schema for a minute.
+      - id: done
+        run: |
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.skip_verify }}" = "true" ]; then
+            echo "Lint and build already passed in CI for this commit."
+          fi
+
+  # Applies only migrations not yet in _prisma_migrations; never resets or drops data.
+  # Runs before the deploy, so the old code must tolerate the new schema for a minute.
+  migrate:
+    name: 2 · Migrate database
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      ok: ${{ steps.migrate.outputs.ok }}
+      applied: ${{ steps.migrate.outputs.applied }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
       - id: migrate
         name: Apply database migrations
         env:
@@ -72,9 +118,28 @@ jobs:
           # Recorded even on failure, so the notification can say what was attempted.
           applied=$(grep -oE 'Applying migration `[^`]+`' "$RUNNER_TEMP/migrate.log" | sed -E 's/.*`(.+)`/\1/' | paste -sd, - || true)
           echo "applied=$applied" >> "$GITHUB_OUTPUT"
+          if [ -n "$applied" ]; then
+            echo "### Migrations applied" >> "$GITHUB_STEP_SUMMARY"
+            echo "$applied" | tr ',' '\n' | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          [ "$status" -eq 0 ] && echo "ok=true" >> "$GITHUB_OUTPUT"
           exit $status
 
-      # Vercel builds from source (as before), so the Prisma engine matches its runtime.
+  # Vercel builds from source, so the Prisma engine matches its runtime.
+  vercel:
+    name: 3 · Deploy to Vercel
+    needs: migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ steps.vercel.outputs.url || 'https://ai-bookmarker.vercel.app' }}
+    outputs:
+      ok: ${{ steps.vercel.outputs.ok }}
+      url: ${{ steps.vercel.outputs.url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - id: vercel
         name: Deploy to Vercel production
         env:
@@ -85,10 +150,18 @@ jobs:
           url=$(npx --yes vercel@65.9.0 deploy --prod --yes --token "$VERCEL_TOKEN" \
             --meta githubCommitSha="$GITHUB_SHA" --meta githubRef="$GITHUB_REF_NAME")
           echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
           echo "### Deployed: $url" >> "$GITHUB_STEP_SUMMARY"
 
+  smoke:
+    name: 4 · Smoke test
+    needs: vercel
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ok: ${{ steps.smoke.outputs.ok }}
+    steps:
       - id: smoke
-        name: Smoke test
         run: |
           check() {
             got=$(curl -sS --retry 5 --retry-delay 10 --retry-all-errors -o /dev/null -w "%{http_code}" "$SITE_URL$1" || true)
@@ -101,34 +174,61 @@ jobs:
           check /login 200
           check / 200
           check /bookmarks 307
+          echo "ok=true" >> "$GITHUB_OUTPUT"
 
-      # Tags the deployed commit vX.Y.Z and publishes a GitHub Release with generated notes.
+  # Tags the deployed commit vX.Y.Z and publishes a GitHub Release with generated notes.
+  release:
+    name: 5 · Tag release
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # release tag
+    outputs:
+      ok: ${{ steps.release.outputs.ok }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - id: release
-        name: Tag release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="v$(node -p 'require("./package.json").version')"
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists"; exit 0
+            echo "Release $tag already exists"
+          else
+            gh release create "$tag" --target "$GITHUB_SHA" --title "BookmarkAI $tag" --generate-notes
+            echo "### Released $tag" >> "$GITHUB_STEP_SUMMARY"
           fi
-          gh release create "$tag" --target "$GITHUB_SHA" --title "BookmarkAI $tag" --generate-notes
-          echo "### Released $tag" >> "$GITHUB_STEP_SUMMARY"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
 
-      # Reports the deploy (live or failed) on Telegram. A notification problem never fails the deploy.
-      - name: Notify Telegram
-        if: always()
-        continue-on-error: true
-        env:
+  # Manual runs only; when called from CI, CI notifies once for the whole pipeline.
+  notify:
+    name: Notify
+    needs: [verify, migrate, vercel, smoke, release]
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          JOB_STATUS: ${{ job.status }}
-          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
-          MIGRATE_OUTCOME: ${{ steps.migrate.outcome }}
-          VERCEL_OUTCOME: ${{ steps.vercel.outcome }}
-          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
-          RELEASE_OUTCOME: ${{ steps.release.outcome }}
-          MIGRATIONS: ${{ steps.migrate.outputs.applied }}
-          DEPLOYMENT_URL: ${{ steps.vercel.outputs.url }}
+          JOB_STATUS: ${{ contains(needs.*.result, 'cancelled') && 'cancelled' || (contains(needs.*.result, 'failure') && 'failure' || 'success') }}
+          VERIFY_OUTCOME: ${{ needs.verify.result }}
+          MIGRATE_OUTCOME: ${{ needs.migrate.result }}
+          VERCEL_OUTCOME: ${{ needs.vercel.result }}
+          SMOKE_OUTCOME: ${{ needs.smoke.result }}
+          RELEASE_OUTCOME: ${{ needs.release.result }}
+          MIGRATIONS: ${{ needs.migrate.outputs.applied }}
+          DEPLOYMENT_URL: ${{ needs.vercel.outputs.url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: node scripts/notify-telegram.mjs deploy

@@ -1,7 +1,8 @@
 // Reports CI builds and production deploys on Telegram. Run by GitHub Actions; never part of the app build.
 //
-//   node scripts/notify-telegram.mjs build    after every CI run (ci.yml): pass or fail, and what changed
-//   node scripts/notify-telegram.mjs deploy   after a deploy (deploy.yml): what's new, or where it failed
+//   node scripts/notify-telegram.mjs build    end of a CI run with no deploy (ci.yml): pass or fail, and what changed
+//   node scripts/notify-telegram.mjs deploy   end of a CI run that deployed, or a manual deploy.yml run:
+//                                             what's new, or the stage where it failed
 //
 // Needs TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID; without them it prints the message and exits.
 // build reads BUILD_RESULT, WILL_DEPLOY, EVENT_NAME, REF_NAME, BEFORE, AFTER, COMPARE_URL, PR_* and RUN_URL.

@@ -49,7 +49,8 @@ On a `release/x.y.0` branch: `npm version minor --no-git-tag-version` (or
 `major` for breaking/milestone releases), commit `Release x.y.0` (package.json +
 package-lock.json), open a PR to `main`. Patch bumps don't deploy; their
 changes ship with the next minor or major.
-When the user merges it, Actions deploys. Don't push tags yourself; the
+When the user merges it (or asks you to: `gh pr merge <n> --merge`, wait for
+CI to pass first), Actions deploys. Don't push tags yourself; the
 workflow creates `vX.Y.Z` and the GitHub Release after a successful deploy.
 
 To redeploy without a version bump (e.g. after an env var change), run
@@ -57,9 +58,11 @@ To redeploy without a version bump (e.g. after an env var change), run
 
 ## 5. Watch the run
 
-`gh run watch` (or the Actions tab). `deploy.yml` smoke-tests `/login` (200),
-`/` (200) and `/bookmarks` (307 → `/login`) and posts the outcome to Telegram,
-including any migrations applied and the stage that failed. Signed-in
+`gh run watch` (or the Actions tab, where the CI run graph shows each deploy
+stage: Verify → Migrate database → Deploy to Vercel → Smoke test → Tag
+release). The smoke test checks `/login` (200), `/` (200) and `/bookmarks`
+(307 → `/login`). CI's Notify job then posts one Telegram message with the
+outcome, including any migrations applied and the stage that failed. Signed-in
 end-to-end testing on prod is the user's job.
 
 ## 6. Watch logs — only on request or reported problem
