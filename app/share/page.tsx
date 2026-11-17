@@ -1,10 +1,9 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { bookmarkUrlSchema, saveBookmark } from "@/lib/save-bookmark";
 import { pickSharedUrl } from "@/lib/share-url";
 import { AddBookmarkForm } from "@/app/(app)/_components/add-bookmark-form";
-
-export const dynamic = "force-dynamic";
 // A share kicks off fetch + extract + summarize in after(), same as the
 // bookmark pages that trigger processing.
 export const maxDuration = 300;
@@ -28,11 +27,25 @@ function shareHref(params: ShareParams): string {
  * Writing on a GET is deliberate: saveBookmark dedupes per user, so a reload
  * or a double share lands on the same bookmark instead of duplicating it.
  */
-export default async function SharePage({
+export default function SharePage({
   searchParams,
 }: {
   searchParams: Promise<ShareParams>;
 }) {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex flex-1 items-center justify-center px-4 py-12 text-sm text-muted">
+          Saving…
+        </main>
+      }
+    >
+      <SaveShared searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function SaveShared({ searchParams }: { searchParams: Promise<ShareParams> }) {
   const params = await searchParams;
 
   const user = await getCurrentUser();

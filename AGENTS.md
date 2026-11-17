@@ -103,6 +103,22 @@ takeaways, action items; action items promote into a todo list.
   shows a skeleton instantly). Never poll with `router.refresh()` on an
   interval or call server actions on page load/mount: they queue behind each
   other and make taps wait. Poll `/api/bookmarks/status` with `fetch` instead.
+- **Cache Components is on (`cacheComponents: true`).** No `export const
+  dynamic`; anything reading the session, cookies, headers or searchParams
+  must sit under a `<Suspense>` (or a `loading.tsx`) so the rest prerenders
+  as the static shell; `npm run build` fails otherwise. The `(app)` layout
+  reads no request data on purpose: auth redirects that need a real 307
+  (signed out → `/login`, signed in on `/` → `/bookmarks`) live in
+  `proxy.ts`, and pages still call `requireUser()`.
+- **Visited screens stay mounted (hidden by `<Activity>`), not unmounted.**
+  Reset transient UI (open menus, sheets, typed passwords) in a
+  `useLayoutEffect` cleanup, as `tag-filter-dropdown.tsx` and `auth-form.tsx`
+  do. Screens refresh their data on revisit via `<LiveData />`
+  (`refresh-on-revisit.tsx`); add it to any new top-level screen.
+- **`use cache` only for data where staleness is harmless** (user lookup,
+  "More like this"). On Vercel its store is per-instance memory, so a
+  server action's invalidation can't be relied on to reach every instance;
+  per-user lists that must reflect the user's own writes stay uncached.
 - **External calls need explicit timeouts** that fit inside `maxDuration`
   (OpenAI SDK default is 10 minutes); otherwise a bookmark is stuck
   `pending` forever.

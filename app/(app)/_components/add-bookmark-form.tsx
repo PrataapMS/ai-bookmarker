@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useLayoutEffect, useRef } from "react";
 import { addBookmark, type AddState } from "@/app/actions/bookmarks";
 
 export function AddBookmarkForm({ defaultValue }: { defaultValue?: string }) {
@@ -8,9 +8,29 @@ export function AddBookmarkForm({ defaultValue }: { defaultValue?: string }) {
     addBookmark,
     undefined,
   );
+  const formRef = useRef<HTMLFormElement>(null);
+  const submitted = useRef(false);
+
+  // A successful save navigates away, and this screen stays mounted (hidden):
+  // clear the link it saved so it isn't still there on the way back. An
+  // unsent draft is kept.
+  useLayoutEffect(() => {
+    const form = formRef.current;
+    return () => {
+      if (submitted.current) form?.reset();
+      submitted.current = false;
+    };
+  }, []);
 
   return (
-    <form action={formAction} className="space-y-2">
+    <form
+      ref={formRef}
+      action={formAction}
+      onSubmit={() => {
+        submitted.current = true;
+      }}
+      className="space-y-2"
+    >
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
           name="url"

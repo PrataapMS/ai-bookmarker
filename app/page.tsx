@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
@@ -23,12 +24,20 @@ const steps = [
   },
 ];
 
-export default async function LandingPage() {
+// Signed-in visitors are normally redirected by proxy.ts before getting here;
+// this is the fallback for when the page itself sees a session.
+async function RedirectIfSignedIn() {
   const user = await getCurrentUser();
   if (user) redirect("/bookmarks");
+  return null;
+}
 
+export default function LandingPage() {
   return (
     <div className="relative flex min-h-full flex-col overflow-hidden">
+      <Suspense fallback={null}>
+        <RedirectIfSignedIn />
+      </Suspense>
       {/* Animated blob field behind the hero */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div

@@ -5,13 +5,12 @@ import { feedTagCounts, fetchListPage, type FeedSort, type ListQuery } from "@/l
 import { getTimeZone } from "@/lib/timezone";
 import { TagFilterDropdown } from "../_components/tag-filter-dropdown";
 import { PageTransition } from "../_components/page-transition";
+import { LiveData } from "../_components/live-data";
 import { DensityToggle } from "../_components/density-toggle";
 import { InfiniteList } from "../_components/infinite-list";
 import { listHref, renderListItems } from "../_components/bookmark-card";
 import { surpriseMe } from "@/app/actions/stars";
 import { loadListPage } from "@/app/actions/lists";
-
-export const dynamic = "force-dynamic";
 
 export default async function FeedPage({
   searchParams,
@@ -56,6 +55,7 @@ export default async function FeedPage({
   return (
     <PageTransition>
       <div className="space-y-6">
+        <LiveData />
         <section>
           <h1 className="mb-1 text-xl font-semibold tracking-tight">Feed</h1>
           <p className="text-sm text-muted">

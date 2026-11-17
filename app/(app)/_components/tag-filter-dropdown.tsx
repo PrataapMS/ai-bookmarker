@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export type TagOption = { name: string; count: number };
@@ -30,6 +30,16 @@ export function TagFilterDropdown({
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Screens stay mounted (hidden) after navigating away; don't come back to
+  // this left open.
+  useLayoutEffect(
+    () => () => {
+      setOpen(false);
+      setQuery("");
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;

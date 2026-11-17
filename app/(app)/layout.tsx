@@ -1,22 +1,37 @@
 import { Suspense } from "react";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { AppHistory } from "./_components/app-history";
+import { NavTracker } from "./_components/nav-tracker";
 import { SectionSwipe } from "./_components/section-swipe";
 import { Sidebar } from "./_components/sidebar";
+import { NavSkeleton } from "./_components/nav-skeleton";
 import { OfflineBanner } from "./_components/offline-banner";
 import "./engage.css";
 
-export default async function AppLayout({
+// Signed-out visitors are sent to /login by proxy.ts; each page also checks
+// the session itself (requireUser), so this layout needs no request data and
+// its chrome is part of the prerendered static shell.
+
+async function AccountEmail() {
+  const user = await getCurrentUser();
+  return user ? <span title={user.email}>{user.email}</span> : null;
+}
+
+export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
-
   return (
     <div className="flex min-h-full flex-1">
-      <Suspense fallback={null}>
-        <Sidebar email={user.email} />
+      <Suspense fallback={<NavSkeleton />}>
+        <Sidebar
+          account={
+            <Suspense fallback={null}>
+              <AccountEmail />
+            </Suspense>
+          }
+        />
       </Suspense>
       {/* pt-20/pb-28 clear the fixed mobile top bar and bottom tab bar; the
           sidebar sits in-flow at md+. */}
@@ -26,6 +41,9 @@ export default async function AppLayout({
         </SectionSwipe>
       </main>
       <AppHistory />
+      <Suspense fallback={null}>
+        <NavTracker />
+      </Suspense>
       <OfflineBanner />
     </div>
   );

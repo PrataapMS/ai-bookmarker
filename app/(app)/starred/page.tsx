@@ -11,12 +11,11 @@ import {
 import { getTimeZone } from "@/lib/timezone";
 import { TagFilterDropdown } from "../_components/tag-filter-dropdown";
 import { PageTransition } from "../_components/page-transition";
+import { LiveData } from "../_components/live-data";
 import { DensityToggle } from "../_components/density-toggle";
 import { InfiniteList } from "../_components/infinite-list";
 import { listHref, renderListItems } from "../_components/bookmark-card";
 import { loadListPage } from "@/app/actions/lists";
-
-export const dynamic = "force-dynamic";
 
 export default async function StarredPage({
   searchParams,
@@ -71,6 +70,7 @@ export default async function StarredPage({
   return (
     <PageTransition>
       <div className="space-y-6">
+        <LiveData />
         <section>
           <h1 className="mb-1 text-xl font-semibold tracking-tight">
             <span className="gradient-text">Starred</span> ⭐

@@ -1,13 +1,12 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { safeNextPath } from "@/lib/next-path";
 import { AuthForm } from "./auth-form";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ mode?: string; next?: string }>;
-}) {
+type LoginSearchParams = Promise<{ mode?: string; next?: string }>;
+
+async function LoginForm({ searchParams }: { searchParams: LoginSearchParams }) {
   const { mode, next } = await searchParams;
   // Set when the user got here mid-share, so sign-in resumes that share.
   const nextPath = safeNextPath(next);
@@ -15,6 +14,16 @@ export default async function LoginPage({
   const user = await getCurrentUser();
   if (user) redirect(nextPath ?? "/bookmarks");
 
+  return (
+    <AuthForm
+      inviteRequired={Boolean(process.env.SIGNUP_CODE)}
+      initialMode={mode === "signup" ? "signup" : "login"}
+      next={nextPath}
+    />
+  );
+}
+
+export default function LoginPage({ searchParams }: { searchParams: LoginSearchParams }) {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
@@ -27,11 +36,9 @@ export default async function LoginPage({
             Save a link. Get the summary, takeaways, and action items.
           </p>
         </div>
-        <AuthForm
-          inviteRequired={Boolean(process.env.SIGNUP_CODE)}
-          initialMode={mode === "signup" ? "signup" : "login"}
-          next={nextPath}
-        />
+        <Suspense fallback={<div className="h-72 animate-pulse rounded-xl border border-border bg-surface" />}>
+          <LoginForm searchParams={searchParams} />
+        </Suspense>
       </div>
     </main>
   );

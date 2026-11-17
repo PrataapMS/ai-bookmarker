@@ -5,8 +5,6 @@ import { sendDueReminders } from "@/lib/reminders";
 // or any external cron) with `Authorization: Bearer $CRON_SECRET`.
 // A route handler rather than a server action because it has no browser
 // session; the shared secret is its only credential.
-
-export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 function authorized(header: string | null): boolean {

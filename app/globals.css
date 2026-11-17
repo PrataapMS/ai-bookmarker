@@ -137,6 +137,15 @@ body {
   }
 }
 
+/* Browser-driven back/forward (iOS/Safari swipe, Chrome's gesture): the
+   browser animates the page itself, so ours is skipped (see NavTracker). */
+html[data-vt="off"]::view-transition-group(*),
+html[data-vt="off"]::view-transition-image-pair(*),
+html[data-vt="off"]::view-transition-old(*),
+html[data-vt="off"]::view-transition-new(*) {
+  animation: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(*),
   ::view-transition-new(*),

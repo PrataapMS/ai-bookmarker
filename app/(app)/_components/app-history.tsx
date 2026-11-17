@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { traverseWith } from "./nav-tracker";
 
 /*
  * Native-style back navigation for the installed Android app.
@@ -79,19 +80,14 @@ function findEarlier(nav: NavigationLike, url: string): NavEntry | null {
   return null;
 }
 
-function useStepBackTo() {
-  const router = useRouter();
-  return useCallback(
-    (nav: NavigationLike, entry: NavEntry) => {
-      // Back/forward restores the page as it was rendered then; refresh so it
-      // reflects anything changed since (e.g. a bookmark just deleted).
-      nav.traverseTo(entry.key).finished.then(
-        () => router.refresh(),
-        () => {},
-      );
-    },
-    [router],
-  );
+/**
+ * Steps back to an earlier entry. The page is restored from the router cache
+ * and refreshes its own data in the background (see RefreshOnRevisit).
+ */
+function stepBackTo(nav: NavigationLike, entry: NavEntry, transitionTypes: string[] = []) {
+  traverseWith(transitionTypes, () => {
+    nav.traverseTo(entry.key).finished.catch(() => {});
+  });
 }
 
 /**
@@ -103,7 +99,6 @@ function useStepBackTo() {
  */
 export function useSectionNavigate() {
   const router = useRouter();
-  const stepBackTo = useStepBackTo();
   return useCallback(
     (href: string, transitionTypes: string[] = []) => {
       if (sameUrl(href, location.href)) return;
@@ -113,11 +108,11 @@ export function useSectionNavigate() {
         return;
       }
       const earlier = findEarlier(nav, href);
-      if (earlier) stepBackTo(nav, earlier);
+      if (earlier) stepBackTo(nav, earlier, transitionTypes);
       else if (nav.currentEntry.index <= rootIndex(nav)) router.push(href, { transitionTypes });
       else router.replace(href, { transitionTypes });
     },
-    [router, stepBackTo],
+    [router],
   );
 }
 
@@ -136,7 +131,6 @@ export function useSectionLinkClick() {
 }
 
 export function AppHistory() {
-  const stepBackTo = useStepBackTo();
   const [exitPrompt, setExitPrompt] = useState<"closed" | "open" | "closeFailed">(
     "closed",
   );
@@ -191,7 +185,7 @@ export function AppHistory() {
       window.removeEventListener("keydown", onGesture, true);
       nav.removeEventListener("currententrychange", onEntryChange);
     };
-  }, [armGuard, stepBackTo]);
+  }, [armGuard]);
 
   const stay = () => {
     promptOpen.current = false;

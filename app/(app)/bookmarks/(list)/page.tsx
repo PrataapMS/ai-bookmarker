@@ -9,14 +9,13 @@ import { AddBookmarkForm } from "@/app/(app)/_components/add-bookmark-form";
 import { StatusPoller } from "@/app/(app)/_components/status-poller";
 import { TagFilterDropdown } from "@/app/(app)/_components/tag-filter-dropdown";
 import { PageTransition } from "@/app/(app)/_components/page-transition";
+import { LiveData } from "@/app/(app)/_components/live-data";
 import { ReadingStats, type ReadEntry } from "@/app/(app)/_components/reading-stats";
 import { DensityToggle } from "@/app/(app)/_components/density-toggle";
 import { InfiniteList } from "@/app/(app)/_components/infinite-list";
 import { listHref, renderListItems } from "@/app/(app)/_components/bookmark-card";
 import { surpriseMe } from "@/app/actions/stars";
 import { loadListPage } from "@/app/actions/lists";
-
-export const dynamic = "force-dynamic";
 // Fetch + extract + summarize can take a while; allow the action (and its
 // after() work) the platform maximum.
 export const maxDuration = 300;
@@ -109,6 +108,7 @@ export default async function BookmarksPage({
   return (
     <PageTransition>
       <div className="space-y-8">
+        <LiveData />
         <StatusPoller pendingIds={pending.map((b) => b.id)} />
 
         <section>

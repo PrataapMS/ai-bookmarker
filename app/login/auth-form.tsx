@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useLayoutEffect, useRef, useState } from "react";
 import { login, signup, type AuthState } from "@/app/actions/auth";
 
 export function AuthForm({
@@ -25,6 +25,14 @@ export function AuthForm({
   const state = mode === "login" ? loginState : signupState;
   const formAction = mode === "login" ? loginAction : signupAction;
   const pending = mode === "login" ? loginPending : signupPending;
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Pages stay mounted (hidden) after navigating away: don't keep a typed
+  // password around in the DOM once signed in.
+  useLayoutEffect(() => {
+    const form = formRef.current;
+    return () => form?.reset();
+  }, []);
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
@@ -49,7 +57,7 @@ export function AuthForm({
         </button>
       </div>
 
-      <form action={formAction} className="space-y-4">
+      <form ref={formRef} action={formAction} className="space-y-4">
         {next && <input type="hidden" name="next" value={next} />}
         <div>
           <label htmlFor="email" className="mb-1 block text-sm font-medium">

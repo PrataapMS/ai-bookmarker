@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
+import { cacheLife, cacheTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
@@ -72,11 +73,20 @@ async function getUserIdFromSession(): Promise<string | null> {
 export const getCurrentUser = cache(async () => {
   const userId = await getUserIdFromSession();
   if (!userId) return null;
+  return findUser(userId);
+});
+
+// Accounts never change once created, so the lookup behind every page and
+// action is cached instead of hitting the database each time.
+async function findUser(id: string) {
+  "use cache";
+  cacheLife("max");
+  cacheTag(`user:${id}`);
   return prisma.user.findUnique({
-    where: { id: userId },
+    where: { id },
     select: { id: true, email: true },
   });
-});
+}
 
 /** Returns the current user or redirects to /login. Use in protected pages. */
 export async function requireUser() {

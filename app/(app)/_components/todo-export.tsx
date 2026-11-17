@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   downloadFile,
   todosCsv,
@@ -14,6 +14,10 @@ export function TodoExport({ todos }: { todos: TodoView[] }) {
   const [open, setOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Screens stay mounted (hidden) after navigating away; don't come back to
+  // this left open.
+  useLayoutEffect(() => () => setOpen(false), []);
 
   useEffect(() => {
     if (!open) return;

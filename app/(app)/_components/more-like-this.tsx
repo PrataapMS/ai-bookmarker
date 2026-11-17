@@ -1,28 +1,16 @@
 import Link from "next/link";
+import { cacheLife } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { readingMinutes } from "@/lib/format";
 
 const MAX_SUGGESTIONS = 3;
 
-/**
- * "More like this": related bookmarks the viewer can open (their own, or any
- * public one) ranked by shared tags. Unread picks float above ones already
- * read, so the next click is something new.
- */
-export async function MoreLikeThis({
-  bookmarkId,
-  tags,
-  userId,
-  from,
-}: {
-  bookmarkId: string;
-  tags: string[];
-  userId: string;
-  from?: string;
-}) {
-  if (tags.length === 0) return null;
-
-  const candidates = await prisma.bookmark.findMany({
+// Suggestions don't need to be up to the second: cached for a few minutes
+// per bookmark and viewer, so reopening a bookmark skips this query.
+async function relatedCandidates(bookmarkId: string, tags: string[], userId: string) {
+  "use cache";
+  cacheLife("minutes");
+  return prisma.bookmark.findMany({
     where: {
       id: { not: bookmarkId },
       status: "ready",
@@ -42,6 +30,27 @@ export async function MoreLikeThis({
       readAt: true,
     },
   });
+}
+
+/**
+ * "More like this": related bookmarks the viewer can open (their own, or any
+ * public one) ranked by shared tags. Unread picks float above ones already
+ * read, so the next click is something new.
+ */
+export async function MoreLikeThis({
+  bookmarkId,
+  tags,
+  userId,
+  from,
+}: {
+  bookmarkId: string;
+  tags: string[];
+  userId: string;
+  from?: string;
+}) {
+  if (tags.length === 0) return null;
+
+  const candidates = await relatedCandidates(bookmarkId, tags, userId);
 
   const tagSet = new Set(tags);
   const ranked = candidates
