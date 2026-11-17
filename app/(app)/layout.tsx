@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { Sidebar } from "./_components/sidebar";
+import "./engage.css";
 
 export default async function AppLayout({
   children,

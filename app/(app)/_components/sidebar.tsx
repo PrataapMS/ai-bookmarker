@@ -9,6 +9,7 @@ import { ThemeToggle } from "./theme-toggle";
 const NAV_ITEMS = [
   { href: "/bookmarks", label: "Bookmarks", icon: "📑" },
   { href: "/feed", label: "Feed", icon: "🌐" },
+  { href: "/starred", label: "Starred", icon: "⭐" },
   { href: "/todos", label: "Todos", icon: "✅" },
 ];
 
@@ -56,10 +57,11 @@ function SignOutIcon() {
 export function Sidebar({ email }: { email: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  // A bookmark opened from the feed keeps the feed tab highlighted, even
-  // though its URL still lives under /bookmarks/[id].
-  const fromFeed = (searchParams.get("from") ?? "").startsWith("/feed");
-  const activePath = fromFeed ? "/feed" : pathname;
+  // A bookmark opened from the feed (or Starred) keeps that tab highlighted,
+  // even though its URL still lives under /bookmarks/[id].
+  const from = searchParams.get("from") ?? "";
+  const fromSection = NAV_ITEMS.find((item) => from.startsWith(item.href))?.href;
+  const activePath = fromSection ?? pathname;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -104,7 +106,7 @@ export function Sidebar({ email }: { email: string }) {
           <span className="text-lg" aria-hidden>
             🔖
           </span>
-          BookmarkAI
+          <span className="hidden min-[400px]:inline">BookmarkAI</span>
         </Link>
         <div className="ml-auto flex items-center gap-1">
           {NAV_ITEMS.map((item) => {
@@ -116,7 +118,7 @@ export function Sidebar({ email }: { email: string }) {
                 aria-label={item.label}
                 title={item.label}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-11 w-11 items-center justify-center rounded-md text-2xl transition ${
+                className={`flex h-10 w-10 items-center justify-center rounded-md text-xl transition ${
                   active
                     ? "bg-background"
                     : "opacity-70 hover:bg-background hover:opacity-100"
@@ -178,7 +180,7 @@ export function Sidebar({ email }: { email: string }) {
           </button>
         </div>
 
-        {/* Bookmarks/Todos live in the mobile top bar as quick-access icons,
+        {/* The nav items live in the mobile top bar as quick-access icons,
             so the drawer only lists them at md+ where the top bar is gone. */}
         <nav className={`hidden flex-col gap-1 p-3 text-sm font-medium md:flex ${collapsed ? "md:mt-10" : ""}`}>
           {NAV_ITEMS.map((item) => {

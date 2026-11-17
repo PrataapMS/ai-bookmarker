@@ -6,12 +6,15 @@ import { formatDate, readingTime } from "@/lib/format";
 import { TagFilterDropdown } from "../_components/tag-filter-dropdown";
 import { PageTransition } from "../_components/page-transition";
 import { VoteButtons } from "../_components/vote-buttons";
+import { StarButton } from "../_components/star-button";
+import { surpriseMe } from "@/app/actions/stars";
 
 export const dynamic = "force-dynamic";
 
 type Sort = "top" | "new";
 
 const VISIBLE_CARD_TAGS = 3;
+const MEDALS = ["🥇", "🥈", "🥉"];
 
 function feedHref(tag: string | null, sort: Sort): string {
   const params = new URLSearchParams();
@@ -37,7 +40,8 @@ export default async function FeedPage({
     include: {
       user: { select: { email: true } },
       votes: { select: { userId: true, value: true } },
-      _count: { select: { takeaways: true, actionItems: true } },
+      stars: { where: { userId: user.id }, select: { id: true } },
+      _count: { select: { takeaways: true, actionItems: true, stars: true } },
     },
   });
 
@@ -67,6 +71,7 @@ export default async function FeedPage({
   // Carried through to the detail page so "back" returns to this exact
   // feed view (tag/sort included) instead of defaulting to /bookmarks.
   const returnHref = feedHref(activeTag ?? null, sort);
+  const surprise = surpriseMe.bind(null, "feed" as const);
 
   const sortTab = (value: Sort, label: string) => (
     <Link
@@ -88,8 +93,8 @@ export default async function FeedPage({
         <section>
           <h1 className="mb-1 text-xl font-semibold tracking-tight">Feed</h1>
           <p className="text-sm text-muted">
-            Public bookmarks shared by everyone. Upvote the good ones — make your
-            own bookmarks public to share them here.
+            What everyone&apos;s reading rn. Upvote the bangers, ⭐ star the
+            keepers, and make your own bookmarks public to join the chat.
           </p>
         </section>
 
@@ -98,7 +103,19 @@ export default async function FeedPage({
             {sortTab("top", "🔥 Top")}
             {sortTab("new", "🕐 New")}
           </div>
-          <TagFilterDropdown tags={allTags} activeTag={activeTag} />
+          <div className="flex items-center gap-2">
+            <form action={surprise}>
+              <button
+                type="submit"
+                title="Open a random pick you haven't seen"
+                className="dice-btn flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition hover:border-accent/50 hover:text-foreground"
+              >
+                <span className="dice" aria-hidden>🎲</span>
+                Surprise me
+              </button>
+            </form>
+            <TagFilterDropdown tags={allTags} activeTag={activeTag} />
+          </div>
         </div>
 
         {/* Crossfade the list when the tag filter or sort changes (same route). */}
@@ -123,10 +140,11 @@ export default async function FeedPage({
               </div>
             ) : (
               <section className="space-y-3">
-                {scored.map((b) => (
+                {scored.map((b, i) => (
                   <article
                     key={b.id}
-                    className="group relative rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50"
+                    className="card-in group relative rounded-xl border border-border bg-surface p-4 transition hover:border-accent/50"
+                    style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
                   >
                     <Link
                       href={`/bookmarks/${b.id}?from=${encodeURIComponent(returnHref)}`}
@@ -139,6 +157,11 @@ export default async function FeedPage({
                       <div className="min-w-0">
                         <ViewTransition name={`bm-title-${b.id}`} share="morph" default="none">
                           <h2 className="truncate font-medium group-hover:text-accent">
+                            {sort === "top" && i < MEDALS.length && b.score > 0 && (
+                              <span className="mr-1.5" title={`#${i + 1} on the feed`}>
+                                {MEDALS[i]}
+                              </span>
+                            )}
                             {b.title ?? b.url}
                           </h2>
                         </ViewTransition>
@@ -148,7 +171,12 @@ export default async function FeedPage({
                           {b.userId === user.id ? "you" : b.user.email.split("@")[0]}
                         </p>
                       </div>
-                      <span className="relative z-10">
+                      <span className="relative z-10 flex shrink-0 items-center gap-1">
+                        <StarButton
+                          bookmarkId={b.id}
+                          starred={b.stars.length > 0}
+                          count={b._count.stars}
+                        />
                         <VoteButtons bookmarkId={b.id} score={b.score} myVote={b.myVote} />
                       </span>
                     </div>
