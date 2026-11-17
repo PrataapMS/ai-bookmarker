@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -26,13 +26,8 @@ import {
   snoozeTodo,
   toggleTodo,
 } from "@/app/actions/todos";
-import {
-  googleCalendarUrl,
-  localInstant,
-  localParts,
-  snoozePresets,
-  type TodoView,
-} from "@/lib/todo-client";
+import { googleCalendarUrl, snoozePresets, type TodoView } from "@/lib/todo-client";
+import { DateTimePicker, Sheet } from "./date-time-sheet";
 
 export function TodoList({
   open,
@@ -201,14 +196,20 @@ function TodoRow({ todo, handle }: { todo: TodoView; handle?: React.ReactNode })
   );
 }
 
-type MenuView = "main" | "due" | "snooze";
+type SheetView = "due" | "snooze" | "snooze-pick" | null;
+
+// Room the ⋯ menu needs below its button before it opens upward instead
+// (includes the fixed mobile tab bar).
+const MENU_ROOM = 300;
 
 function TodoMenu({ todo }: { todo: TodoView }) {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<MenuView>("main");
+  const [up, setUp] = useState(false);
+  const [sheet, setSheet] = useState<SheetView>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
+  const closeSheet = useCallback(() => setSheet(null), []);
 
   useEffect(() => {
     if (!open) return;
@@ -226,8 +227,20 @@ function TodoMenu({ todo }: { todo: TodoView }) {
     };
   }, [open]);
 
+  function toggleMenu() {
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect) setUp(window.innerHeight - rect.bottom < MENU_ROOM);
+    setOpen((o) => !o);
+  }
+
+  function openSheet(view: SheetView) {
+    setOpen(false);
+    setSheet(view);
+  }
+
   function run(fn: () => Promise<void>) {
     setOpen(false);
+    setSheet(null);
     startTransition(fn);
   }
 
@@ -263,159 +276,114 @@ function TodoMenu({ todo }: { todo: TodoView }) {
         type="button"
         aria-label="Todo options"
         aria-expanded={open}
-        onClick={() => {
-          setView("main");
-          setOpen((o) => !o);
-        }}
+        onClick={toggleMenu}
         className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition hover:bg-background hover:text-foreground"
       >
         ⋯
       </button>
 
       {open && (
-        <div className="absolute right-0 top-8 z-30 w-60 rounded-xl border border-border bg-surface p-1.5 shadow-xl">
-          {view === "main" && (
+        <div
+          className={`absolute right-0 z-30 w-60 rounded-xl border border-border bg-surface p-1.5 shadow-xl ${
+            up ? "bottom-8" : "top-8"
+          }`}
+        >
+          {!todo.done && (
             <>
-              {!todo.done && (
-                <>
-                  <button type="button" className={item} onClick={() => setView("due")}>
-                    📅 {todo.dueIso ? "Change due date" : "Set due date"}
-                  </button>
-                  <button type="button" className={item} onClick={() => setView("snooze")}>
-                    💤 Snooze
-                  </button>
-                  {todo.snoozeLabel && (
-                    <button
-                      type="button"
-                      className={item}
-                      onClick={() => run(() => snoozeTodo(todo.id, null))}
-                    >
-                      ⏰ Wake now
-                    </button>
-                  )}
-                </>
-              )}
-              <a
-                href={googleCalendarUrl(todo, window.location.origin)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={item}
-                onClick={() => setOpen(false)}
-              >
-                🗓️ Add to Google Calendar
-              </a>
-              <button type="button" className={item} onClick={share}>
-                📤 {flash ?? "Share or copy"}
+              <button type="button" className={item} onClick={() => openSheet("due")}>
+                📅 {todo.dueIso ? "Change due date" : "Set due date"}
               </button>
-              <div className="my-1 border-t border-border" />
-              <button
-                type="button"
-                className={`${item} text-red-600 dark:text-red-400`}
-                onClick={() => run(() => deleteTodo(todo.id))}
-              >
-                🗑️ Delete
+              <button type="button" className={item} onClick={() => openSheet("snooze")}>
+                💤 Snooze…
               </button>
-            </>
-          )}
-
-          {view === "snooze" && (
-            <>
-              {snoozePresets().map((p) => (
+              {todo.snoozeLabel && (
                 <button
-                  key={p.label}
                   type="button"
                   className={item}
-                  onClick={() => run(() => snoozeTodo(todo.id, p.until.toISOString()))}
+                  onClick={() => run(() => snoozeTodo(todo.id, null))}
                 >
-                  {p.label}
+                  ⏰ Wake now
                 </button>
-              ))}
-              <PickDateTime
-                submitLabel="Snooze"
-                requireTime
-                onSubmit={(iso) => run(() => snoozeTodo(todo.id, iso))}
-              />
+              )}
             </>
           )}
-
-          {view === "due" && (
-            <PickDateTime
-              initialIso={todo.dueIso}
-              initialAllDay={todo.dueAllDay}
-              submitLabel="Save"
-              onSubmit={(iso, allDay) => run(() => setTodoDue(todo.id, iso, allDay))}
-              onClear={todo.dueIso ? () => run(() => setTodoDue(todo.id, null, false)) : undefined}
-            />
-          )}
+          <a
+            href={googleCalendarUrl(todo, window.location.origin)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={item}
+            onClick={() => setOpen(false)}
+          >
+            🗓️ Add to Google Calendar
+          </a>
+          <button type="button" className={item} onClick={share}>
+            📤 {flash ?? "Share or copy"}
+          </button>
+          <div className="my-1 border-t border-border" />
+          <button
+            type="button"
+            className={`${item} text-red-600 dark:text-red-400`}
+            onClick={() => run(() => deleteTodo(todo.id))}
+          >
+            🗑️ Delete
+          </button>
         </div>
+      )}
+
+      {sheet === "due" && (
+        <Sheet title={todo.dueIso ? "Change due date" : "Set due date"} onClose={closeSheet}>
+          <DateTimePicker
+            initialIso={todo.dueIso}
+            initialAllDay={todo.dueAllDay}
+            allowAllDay
+            submitLabel="Save"
+            onSubmit={(iso, allDay) => run(() => setTodoDue(todo.id, iso, allDay))}
+            onClear={todo.dueIso ? () => run(() => setTodoDue(todo.id, null, false)) : undefined}
+          />
+        </Sheet>
+      )}
+
+      {sheet === "snooze" && (
+        <Sheet title="Snooze until" onClose={closeSheet}>
+          <div className="space-y-1">
+            {snoozePresets().map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm transition hover:bg-background"
+                onClick={() => run(() => snoozeTodo(todo.id, p.until.toISOString()))}
+              >
+                <span className="font-medium">{p.label}</span>
+                <span className="text-xs text-muted">{presetHint(p.until)}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm transition hover:bg-background"
+              onClick={() => setSheet("snooze-pick")}
+            >
+              <span className="font-medium">📅 Pick date and time</span>
+              <span className="text-xs text-muted">›</span>
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {sheet === "snooze-pick" && (
+        <Sheet title="Snooze until" onClose={closeSheet}>
+          <DateTimePicker
+            allowAllDay={false}
+            submitLabel="Snooze"
+            onSubmit={(iso) => run(() => snoozeTodo(todo.id, iso))}
+          />
+        </Sheet>
       )}
     </div>
   );
 }
 
-function PickDateTime({
-  initialIso,
-  initialAllDay,
-  submitLabel,
-  requireTime,
-  onSubmit,
-  onClear,
-}: {
-  initialIso?: string | null;
-  initialAllDay?: boolean;
-  submitLabel: string;
-  requireTime?: boolean;
-  onSubmit: (iso: string, allDay: boolean) => void;
-  onClear?: () => void;
-}) {
-  const initial = initialIso ? localParts(initialIso) : null;
-  const [date, setDate] = useState(initial?.date ?? "");
-  const [time, setTime] = useState(initial && !initialAllDay ? initial.time : "");
-  const valid = Boolean(date) && (!requireTime || Boolean(time));
-
-  const input =
-    "w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-accent";
-
-  return (
-    <div className="space-y-2 p-2">
-      <div className="flex gap-2">
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          aria-label="Date"
-          className={input}
-        />
-        <input
-          type="time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          aria-label="Time"
-          className={`${input} w-28`}
-        />
-      </div>
-      {!requireTime && (
-        <p className="text-xs text-muted">No time means all day (reminder at 9:00).</p>
-      )}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={!valid}
-          onClick={() => onSubmit(localInstant(date, time || undefined), !time)}
-          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition hover:opacity-90 disabled:opacity-50"
-        >
-          {submitLabel}
-        </button>
-        {onClear && (
-          <button
-            type="button"
-            onClick={onClear}
-            className="rounded-lg px-3 py-1.5 text-xs text-muted transition hover:text-foreground"
-          >
-            Remove date
-          </button>
-        )}
-      </div>
-    </div>
-  );
+function presetHint(d: Date): string {
+  const sameDay = d.toDateString() === new Date().toDateString();
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return sameDay ? time : `${d.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
 }
